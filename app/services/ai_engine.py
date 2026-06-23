@@ -50,22 +50,23 @@ class AIEngine:
 
             if can_beat:
                 boss_defeated = True
-                # Boss→E：复用同一套 _best_direction 评分逻辑
                 player._walk_to(end_pos)
             else:
                 extra = max(0, rounds_needed - min_rounds)
-                revival_cost = extra * coin_consumption
-                # 用 player 当前状态判断是否能支付复活费用
+                # 每复活一次支付 coinConsumption，获得 minRounds 次额外攻击回合
+                num_revivals = (extra + min_rounds - 1) // min_rounds
+                revival_cost = num_revivals * coin_consumption
                 current_net = player.collected_gold - player.traps_hit * 30
                 if current_net >= revival_cost:
                     boss_defeated = True
                     player._walk_to(end_pos)
+                else:
+                    revival_cost = 0  # 付不起复活费，不计入
 
-        # 最终路径和评分：player内部已追加B→E部分，用最终状态重新计算 stats
+        # 最终路径和评分
         path = player.path
         all_step_scores = player._step_scores
 
-        # 从 player 最终状态重新计算（包含 B→E 段的收集）
         TRAP_COST = 30
         total_gold = player.collected_gold
         traps_hit = player.traps_hit
@@ -147,9 +148,13 @@ class AIEngine:
         boss_defeated = can_beat
         if not can_beat:
             extra = max(0, rounds_needed - min_rounds)
-            revival_cost = extra * coin_consumption
+            # 每复活一次支付 coinConsumption，获得 minRounds 次额外攻击回合
+            num_revivals = (extra + min_rounds - 1) // min_rounds
+            revival_cost = num_revivals * coin_consumption
             if net_from_path >= revival_cost:
                 boss_defeated = True
+            else:
+                revival_cost = 0  # 付不起复活费，不计入
 
         final_net = net_from_path - revival_cost
 

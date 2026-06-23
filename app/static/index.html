@@ -82,10 +82,6 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
       <button class="task-btn active" id="btn-mode-greedy" onclick="switchMode('greedy')">🟢 任务一：贪心拾取</button>
       <button class="task-btn" id="btn-mode-global" onclick="switchMode('global')">🔵 任务二：全局最优</button>
     </div>
-    <div style="display:flex;gap:4px;">
-      <button class="tab-btn active" data-tab="viz" onclick="switchTab('viz')">🗺️ 可视化</button>
-      <button class="tab-btn" data-tab="battle" onclick="switchTab('battle')">⚔️ 战斗详情</button>
-    </div>
   </div>
 </div>
 
@@ -124,57 +120,56 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
 
   <!-- 右面板 -->
   <div class="right-panel" id="right-panel">
-    <div id="tab-viz">
-      <h3>🗺️ 迷宫地图</h3>
-      <div id="maze-static"></div>
-      <div class="legend" id="legend"></div>
-      <div id="anim-section" style="display:none;margin-top:12px;">
-        <h3>🎬 AI路径动画</h3>
-        <div class="viz-bar">
-          <button class="btn btn-dark btn-sm" onclick="animStep(-1)">⏮</button>
-          <button class="btn btn-dark btn-sm" id="btn-play" onclick="animToggle()">▶</button>
-          <button class="btn btn-dark btn-sm" onclick="animStep(1)">⏭</button>
-          <button class="btn btn-dark btn-sm" onclick="animReset()">⏹</button>
-          <span style="font-size:11px;margin-left:6px;" id="step-info">步骤 0/0</span>
-          <span style="font-size:10px;">速度:</span>
-          <select id="speed-select" onchange="setSpeed(this.value)">
-            <option value="600">慢</option>
-            <option value="300" selected>中</option>
-            <option value="100">快</option>
-            <option value="30">极快</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <div id="maze-anim"></div>
-          <div style="flex:1;min-width:160px;">
-            <div class="step-desc" id="step-desc">准备开始...</div>
-            <!-- 动画实时收益面板 -->
-            <div id="anim-reward-panel" style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;font-weight:bold;flex-wrap:wrap;">
-              <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
-                <span>👣</span><span>步数:</span><span id="anim-step-count" style="color:#aab;">0</span>
-              </div>
-              <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
-                <span>💰</span><span>金币:</span><span id="anim-coin-count" style="color:#ffd700;">0</span>
-              </div>
-              <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
-                <span>💀</span><span>陷阱:</span><span id="anim-trap-count" style="color:#e74c3c;">0</span>
-              </div>
-              <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
-                <span>📈</span><span>净收益:</span><span id="anim-net-gold" style="color:#2ecc71;">0</span>
-              </div>
+    <h3>🗺️ 迷宫地图</h3>
+    <div id="maze-static"></div>
+    <div class="legend" id="legend"></div>
+    <div id="anim-section" style="display:none;margin-top:12px;">
+      <h3>🎬 AI路径动画</h3>
+      <div class="viz-bar">
+        <button class="btn btn-dark btn-sm" onclick="animStep(-1)">⏮</button>
+        <button class="btn btn-dark btn-sm" id="btn-play" onclick="animToggle()">▶</button>
+        <button class="btn btn-dark btn-sm" onclick="animStep(1)">⏭</button>
+        <button class="btn btn-dark btn-sm" onclick="animReset()">⏹</button>
+        <span style="font-size:11px;margin-left:6px;" id="step-info">步骤 0/0</span>
+        <span style="font-size:10px;">速度:</span>
+        <select id="speed-select" onchange="setSpeed(this.value)">
+          <option value="600">慢</option>
+          <option value="300" selected>中</option>
+          <option value="100">快</option>
+          <option value="30">极快</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div id="maze-anim"></div>
+        <div style="flex:1;min-width:160px;">
+          <div class="step-desc" id="step-desc">准备开始...</div>
+          <!-- 动画实时收益面板 -->
+          <div id="anim-reward-panel" style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;font-weight:bold;flex-wrap:wrap;">
+            <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
+              <span>👣</span><span>步数:</span><span id="anim-step-count" style="color:#aab;">0</span>
             </div>
-            <div id="score-panel" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;"></div>
-            <div class="console" id="step-log"></div>
+            <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
+              <span>💰</span><span>金币:</span><span id="anim-coin-count" style="color:#ffd700;">0</span>
+            </div>
+            <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
+              <span>💀</span><span>陷阱:</span><span id="anim-trap-count" style="color:#e74c3c;">0</span>
+            </div>
+            <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
+              <span>📈</span><span>净收益:</span><span id="anim-net-gold" style="color:#2ecc71;">0</span>
+            </div>
           </div>
+          <div id="score-panel" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px;"></div>
+          <div class="console" id="step-log"></div>
         </div>
       </div>
     </div>
-    <div id="tab-battle" style="display:none;">
-      <h3>📋 技能冷却时间线</h3>
+    <!-- 战斗详情（运行后显示） -->
+    <div id="battle-section" style="display:none;margin-top:12px;">
+      <h3>⚔️ 战斗详情</h3>
       <div id="timeline"></div>
-      <div style="margin-top:12px;">
-        <h3>📝 战斗日志</h3>
-        <div class="console" id="battle-log" style="max-height:350px;"></div>
+      <div style="margin-top:8px;">
+        <h3 style="font-size:12px;">📝 战斗日志</h3>
+        <div class="console" id="battle-log" style="max-height:250px;"></div>
       </div>
     </div>
   </div>
@@ -238,6 +233,7 @@ function switchMode(mode) {
   result = null;
   compareResult = null;
   document.getElementById('anim-section').style.display = 'none';
+  document.getElementById('battle-section').style.display = 'none';
   renderResult();
 }
 
@@ -266,6 +262,7 @@ async function doSolve() {
     buildAnimSteps();
     document.getElementById('anim-section').style.display = 'block';
     animReset();
+    renderBattleTab(0);
     showToast('求解完成! (' + (currentMode === 'greedy' ? '贪心' : '全局最优') + ')', 'success');
   } catch(e) { showToast(e.message, 'error'); result = null; }
   btn.disabled = false;
@@ -293,15 +290,6 @@ async function doCompare() {
 }
 
 function showToast(msg, type) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + type; setTimeout(() => { t.className = 'toast'; }, 4000); }
-
-// ======== 标签切换 ========
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById('tab-viz').style.display = tab === 'viz' ? 'block' : 'none';
-  document.getElementById('tab-battle').style.display = tab === 'battle' ? 'block' : 'none';
-  if (tab === 'battle') renderBattleTab();
-}
 
 // ======== 迷宫渲染 ========
 function cellColor(r, c, ch, onPath) {
@@ -445,7 +433,16 @@ function buildAnimSteps() {
     }
     // Boss战斗动画（在B位置）
     animSteps.push({ type:'boss', desc:'⚔️ 开始Boss战!' });
+    const minRounds = result.stats.minRounds || 999;
+    const revivalCost = result.stats.revivalCost || 0;
+    let revived = false;
     (result.skillSequence||[]).forEach(sk => {
+      // 在回合耗尽的那一步之前插入复活提示
+      if (revivalCost > 0 && !revived && sk.round > minRounds) {
+        revived = true;
+        const numRevivals = Math.ceil((result.stats.roundsUsed - minRounds) / minRounds);
+        animSteps.push({ type:'revival', desc:`💀 回合耗尽! 复活${numRevivals}次(获得${numRevivals * minRounds}回合), 消耗${revivalCost}金币` });
+      }
       animSteps.push({ type:'skill', desc:`⚔️ 回合${sk.round}: 技能${sk.skillIndex} → Boss${sk.targetBoss}` });
     });
     animSteps.push({ type:'boss-done', desc:'✅ Boss战胜利! 继续前进' });
@@ -501,11 +498,20 @@ function renderAnimFrame() {
       }
     }
   }
-  const animRunningNet = animRunningGold - animRunningDamage;
+  // 检查是否已播放到复活步骤
+  let revivalCost = 0;
+  for (let i = 0; i <= animIdx; i++) {
+    if (animSteps[i].type === 'revival') {
+      revivalCost = result.stats.revivalCost || 0;
+      break;
+    }
+  }
+  const animRunningNet = animRunningGold - animRunningDamage - revivalCost;
   document.getElementById('anim-coin-count').textContent = animRunningCoins + '个 (+' + animRunningGold + ')';
   document.getElementById('anim-trap-count').textContent = animRunningTraps + '次 (-' + animRunningDamage + ')';
-  document.getElementById('anim-net-gold').textContent = animRunningNet;
-  document.getElementById('anim-net-gold').style.color = animRunningNet >= 0 ? '#2ecc71' : '#e74c3c';
+  const netEl = document.getElementById('anim-net-gold');
+  netEl.textContent = revivalCost > 0 ? animRunningNet + ' (复活-' + revivalCost + ')' : animRunningNet;
+  netEl.style.color = animRunningNet >= 0 ? '#2ecc71' : '#e74c3c';
 
   // 统计移动步数（不包含Boss战斗步）
   let moveCount = 0;
@@ -559,47 +565,84 @@ function renderAnimFrame() {
     let icon = '🚶';
     if (s.type==='skill') icon='⚔️';
     else if (s.type==='boss') icon='👹';
+    else if (s.type==='revival') icon='🪙';
     else if (s.type==='boss-done') icon='🏆';
     else if (s.type==='done') icon='✅';
     log += `<div class="${cls}">${icon} ${s.desc}</div>`;
   }
   document.getElementById('step-log').innerHTML = log;
+
+  // 战斗详情与动画同步：统计已播放的技能数
+  let skillCount = 0;
+  for (let i = 0; i <= animIdx; i++) {
+    if (animSteps[i].type === 'skill') skillCount++;
+  }
+  if (result && result.skillSequence && result.skillSequence.length > 0) {
+    renderBattleTab(skillCount);
+  }
 }
 
 // ======== 战斗详情 ========
-function renderBattleTab() {
-  if (!result || !result.success || !result.skillSequence) {
-    document.getElementById('timeline').innerHTML = '<div style="color:#889;text-align:center;padding:16px;">暂无战斗数据</div>';
-    document.getElementById('battle-log').innerHTML = '';
+function renderBattleTab(animatedSkillCount) {
+  const section = document.getElementById('battle-section');
+  const allSkills = (result && result.skillSequence) || [];
+  if (!result || !result.success || !allSkills.length) {
+    section.style.display = 'none';
     return;
   }
-  const skills = result.skillSequence;
-  if (!skills.length) return;
-  const maxRound = Math.max(...skills.map(s=>s.round), result.stats.roundsUsed);
+  section.style.display = 'block';
+
+  // animatedSkillCount: 动画已播放的技能数，undefined表示全部
+  const showAll = (animatedSkillCount === undefined);
+  const skills = showAll ? allSkills : allSkills.slice(0, animatedSkillCount);
+  const maxRound = Math.max(...allSkills.map(s=>s.round), result.stats.roundsUsed);
+  const animatedMaxRound = skills.length > 0 ? Math.max(...skills.map(s=>s.round)) : 0;
+
+  // 技能时间线
   let html = '';
   for (let si = 0; si < playerSkills.length; si++) {
     const [dmg, cd] = playerSkills[si];
     let dots = '';
     for (let r = 1; r <= maxRound; r++) {
-      const used = skills.some(s=>s.skillIndex===si && s.round===r);
-      let onCD = false;
-      if (!used) {
-        let last = -1;
-        for (const s of skills) { if (s.skillIndex===si && s.round<r) last = Math.max(last, s.round); }
-        if (last !== -1 && r - last <= cd) onCD = true;
+      if (r > animatedMaxRound && !showAll) {
+        // 尚未播放到的回合，灰色占位
+        dots += `<div class="timeline-dot" style="background:#2a2a3e;" title="回合${r}: 等待中"></div>`;
+      } else {
+        const used = skills.some(s=>s.skillIndex===si && s.round===r);
+        let onCD = false;
+        if (!used) {
+          let last = -1;
+          for (const s of skills) { if (s.skillIndex===si && s.round<r) last = Math.max(last, s.round); }
+          if (last !== -1 && r - last <= cd) onCD = true;
+        }
+        dots += `<div class="timeline-dot ${used?'dot-used':onCD?'dot-cd':'dot-avail'}" title="回合${r}: ${used?'释放':onCD?'冷却':'可用'}"></div>`;
       }
-      dots += `<div class="timeline-dot ${used?'dot-used':onCD?'dot-cd':'dot-avail'}" title="回合${r}: ${used?'释放':onCD?'冷却':'可用'}"></div>`;
     }
     html += `<div class="timeline-row"><div class="timeline-label">技能${si}<div class="timeline-sub">伤${dmg}冷${cd}</div></div><div class="timeline-dots">${dots}</div></div>`;
   }
+
+  // Boss血量（根据已播放技能扣减）
+  const remainHP = [...bossHPs];
+  for (const sk of skills) {
+    remainHP[sk.targetBoss] -= (playerSkills[sk.skillIndex]||[0,0])[0];
+  }
   html += '<div style="margin-top:6px;"><div style="font-size:11px;font-weight:bold;margin-bottom:3px;">Boss血量</div>';
-  for (let bi=0; bi<bossHPs.length; bi++) html += `<div style="font-size:10px;margin-bottom:1px;">Boss${bi} (HP=${bossHPs[bi]}) <span style="color:#e74c3c;">${'█'.repeat(Math.min(bossHPs[bi],25))}</span></div>`;
-  html += '</div><div style="display:flex;gap:10px;font-size:9px;color:#889;margin-top:4px;"><span>🟢可用</span><span>🔴释放</span><span>⬜冷却</span></div>';
+  for (let bi=0; bi<bossHPs.length; bi++) {
+    const hp = Math.max(0, remainHP[bi]);
+    const pct = bossHPs[bi] > 0 ? hp / bossHPs[bi] : 0;
+    const barLen = Math.max(0, Math.round(pct * 25));
+    const barColor = pct > 0.5 ? '#e74c3c' : pct > 0.2 ? '#e67e22' : '#c0392b';
+    html += `<div style="font-size:10px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
+      Boss${bi}<span style="color:${barColor};">${'█'.repeat(barLen)}${'░'.repeat(25-barLen)}</span> ${hp}/${bossHPs[bi]}
+    </div>`;
+  }
+  html += '</div><div style="display:flex;gap:10px;font-size:9px;color:#889;margin-top:4px;"><span>🟢可用</span><span>🔴释放</span><span>⬜冷却</span><span style="color:#2a2a3e;">⬛等待</span></div>';
   document.getElementById('timeline').innerHTML = html;
 
+  // 战斗日志
   let log = '';
   for (const sk of skills) { const sd = playerSkills[sk.skillIndex]||[0,0]; log += `[${String(sk.round).padStart(3)}] 技能${sk.skillIndex}(伤${sd[0]}) → Boss${sk.targetBoss}\n`; }
-  log += '\n--- 战斗结束 ---';
+  if (showAll && skills.length > 0) log += '\n--- 战斗结束 ---';
   document.getElementById('battle-log').textContent = log;
 }
 
