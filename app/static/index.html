@@ -104,9 +104,6 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
 
     <div class="btn-row">
       <button class="btn btn-green" id="btn-solve" onclick="doSolve()">▶ 运行AI</button>
-      <button class="btn btn-blue" onclick="doValidate()">✓ 验证</button>
-      <button class="btn btn-orange" onclick="loadSample()">📂 示例</button>
-      <button class="btn btn-gray" onclick="formatJson()">🔧 格式化</button>
       <button class="btn" style="background:#9b59b6;" onclick="doCompare()">⚖ 对比</button>
     </div>
 
@@ -152,7 +149,10 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
           <div style="flex:1;min-width:160px;">
             <div class="step-desc" id="step-desc">准备开始...</div>
             <!-- 动画实时收益面板 -->
-            <div id="anim-reward-panel" style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;font-weight:bold;">
+            <div id="anim-reward-panel" style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;font-weight:bold;flex-wrap:wrap;">
+              <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
+                <span>👣</span><span>步数:</span><span id="anim-step-count" style="color:#aab;">0</span>
+              </div>
               <div style="background:#16213e;border:1px solid #2a2a4a;border-radius:5px;padding:6px 10px;display:flex;align-items:center;gap:4px;">
                 <span>💰</span><span>金币:</span><span id="anim-coin-count" style="color:#ffd700;">0</span>
               </div>
@@ -291,21 +291,6 @@ async function doCompare() {
   btn.disabled = false;
   btn.textContent = '⚖ 对比';
 }
-
-async function doValidate() {
-  try {
-    const data = JSON.parse(document.getElementById('json-input').value);
-    const res = await fetch('/api/validate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    const r = await res.json();
-    showToast(r.message, r.valid ? 'success' : 'error');
-  } catch(e) { showToast('JSON格式错误', 'error'); }
-}
-
-function loadSample() { document.getElementById('json-input').value = DEFAULT_JSON; maze = JSON.parse(DEFAULT_JSON).maze; playerSkills = JSON.parse(DEFAULT_JSON).PlayerSkills; bossHPs = JSON.parse(DEFAULT_JSON).B; result = null; compareResult = null; document.getElementById('anim-section').style.display = 'none'; renderStaticMaze(); renderResult(); showToast('已加载示例', 'success'); }
-function formatJson() { try { const d = JSON.parse(document.getElementById('json-input').value); document.getElementById('json-input').value = JSON.stringify(d, null, 2); } catch(e) { showToast('JSON格式错误', 'error'); } }
 
 function showToast(msg, type) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + type; setTimeout(() => { t.className = 'toast'; }, 4000); }
 
@@ -521,6 +506,13 @@ function renderAnimFrame() {
   document.getElementById('anim-trap-count').textContent = animRunningTraps + '次 (-' + animRunningDamage + ')';
   document.getElementById('anim-net-gold').textContent = animRunningNet;
   document.getElementById('anim-net-gold').style.color = animRunningNet >= 0 ? '#2ecc71' : '#e74c3c';
+
+  // 统计移动步数（不包含Boss战斗步）
+  let moveCount = 0;
+  for (let i = 0; i <= animIdx; i++) {
+    if (animSteps[i].type === 'move') moveCount++;
+  }
+  document.getElementById('anim-step-count').textContent = moveCount;
 
   // 方向评分可视化
   // 注意：animIdx 包含Boss战动画步，需折算为移动步索引

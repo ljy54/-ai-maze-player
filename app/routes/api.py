@@ -2,7 +2,7 @@ import os
 import json
 from fastapi import APIRouter, HTTPException
 from collections import deque
-from ..models.schemas import SolveRequest, SolveResponse, ValidateResponse
+from ..models.schemas import SolveResponse
 from ..services.ai_engine import AIEngine
 from ..services.maze_parser import MazeParser
 
@@ -124,52 +124,6 @@ async def solve_global(data: dict):
         stats=result["stats"],
         message=f"全局最优完成 | 评价指标: {result['evaluation']['primaryMetric']}",
     )
-
-
-@router.post("/validate", response_model=ValidateResponse)
-async def validate_maze(data: dict):
-    """验证迷宫输入合法性"""
-    details = {}
-
-    for field in ["maze", "B", "PlayerSkills"]:
-        if field not in data:
-            return ValidateResponse(valid=False, message=f"缺少字段: {field}")
-
-    maze = data["maze"]
-    if not isinstance(maze, list) or len(maze) == 0:
-        return ValidateResponse(valid=False, message="迷宫数据无效")
-
-    rows, cols = len(maze), len(maze[0])
-
-    has_s, has_e, has_b = False, False, False
-    for r in range(rows):
-        for c in range(cols):
-            ch = maze[r][c]
-            if ch == "S": has_s = True
-            elif ch == "E": has_e = True
-            elif ch == "B": has_b = True
-
-    details["hasStart"] = has_s
-    details["hasEnd"] = has_e
-    details["hasBoss"] = has_b
-    details["rows"] = rows
-    details["cols"] = cols
-
-    errors = []
-    if not has_s: errors.append("缺少起点 S")
-    if not has_e: errors.append("缺少终点 E")
-    if not has_b: errors.append("缺少Boss守卫 B")
-
-    if has_s and has_e:
-        parser = MazeParser(maze)
-        dist = parser.bfs_distance(parser.start)
-        if parser.end not in dist:
-            errors.append("起点无法到达终点")
-
-    if errors:
-        return ValidateResponse(valid=False, message="; ".join(errors), details=details)
-
-    return ValidateResponse(valid=True, message="迷宫格式合法", details=details)
 
 
 @router.post("/compare")
