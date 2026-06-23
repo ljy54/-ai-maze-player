@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>助教验收与评分操作手册 · 算法迷宫探险课程设计</title>
+<style>
+  :root{
+    --ink:#1a2230; --soft:#3e4c5e; --muted:#7c8a9c;
+    --line:#dde5ec; --bg:#f5f8f9; --card:#fff;
+    --brand:#0e8a8a; --brand-d:#0a6060; --brand-l:#e3f4f4;
+    --gold:#b5800f; --gold-l:#fbf3df; --ok:#1c8a54; --ok-l:#e7f6ee;
+    --warn:#b3541e; --warn-l:#fbede2; --rose:#b03f6a; --rose-l:#fbe7ef;
+    --fill:#fffbe8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.75; font-size:15.5px;}
+  .layout{display:flex; max-width:1280px; margin:0 auto;}
+  nav.toc{position:sticky; top:0; align-self:flex-start; width:262px; min-width:262px;
+    height:100vh; overflow-y:auto; padding:26px 16px 40px; border-right:1px solid var(--line); background:var(--card);}
+  nav.toc .brand{font-weight:700; color:var(--brand-d); font-size:15px; margin-bottom:4px;}
+  nav.toc .sub{color:var(--muted); font-size:12px; margin-bottom:16px; line-height:1.5;}
+  nav.toc a{display:block; color:var(--soft); text-decoration:none; font-size:13px; padding:6px 10px; border-radius:6px; margin:1px 0;}
+  nav.toc a:hover{background:var(--brand-l); color:var(--brand-d);}
+  nav.toc .grp{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:14px 0 4px 10px;}
+  main{flex:1; min-width:0; padding:0 0 80px;}
+  .wrap{padding:0 50px;}
+  header.hero{background:linear-gradient(135deg,var(--brand-d),var(--brand)); color:#fff; padding:42px 50px 36px;}
+  header.hero .tag{display:inline-block; font-size:12px; letter-spacing:2px; background:rgba(255,255,255,.16); padding:4px 12px; border-radius:20px; margin-bottom:14px;}
+  header.hero h1{font-size:28px; margin-bottom:8px;}
+  header.hero p{opacity:.92; font-size:14.5px; max-width:780px;}
+  h2{font-size:22px; color:var(--brand-d); margin:44px 0 14px; padding-bottom:9px; border-bottom:2px solid var(--line); scroll-margin-top:16px;}
+  h2 .num{display:inline-block; background:var(--brand); color:#fff; font-size:14px; width:29px; height:29px; line-height:29px; text-align:center; border-radius:7px; margin-right:10px; font-weight:700;}
+  h3{font-size:17px; color:var(--ink); margin:26px 0 10px;}
+  h4{font-size:15px; color:var(--brand-d); margin:18px 0 7px;}
+  p{margin:10px 0;} ul,ol{margin:10px 0; padding-left:22px;} li{margin:5px 0;}
+  strong{color:var(--brand-d);}
+  header.hero strong{color:#fff;}
+  header.hero .scope{display:inline-flex; align-items:center; gap:8px; margin:14px 0 4px;
+    background:#ffd479; color:#5a3d00; font-weight:700; font-size:15px;
+    padding:8px 18px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  code{font-family:"SF Mono",Consolas,monospace; background:#e9f1f1; color:#0a6060; padding:2px 6px; border-radius:4px; font-size:13px;}
+  a.inline{color:var(--brand); border-bottom:1px dashed var(--brand); text-decoration:none;}
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:13.8px; background:var(--card); border-radius:9px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  th{background:var(--brand-d); color:#fff; text-align:left; padding:10px 13px; font-size:13px; font-weight:600;}
+  td{padding:9px 13px; border-top:1px solid var(--line); vertical-align:top;}
+  tr:nth-child(even) td{background:#f8fbfb;}
+  td.pt{text-align:center; font-weight:700; color:var(--brand-d); white-space:nowrap;}
+  td.fill{background:var(--fill); text-align:center; color:var(--muted); width:64px;}
+  th.pt,th.fill{text-align:center;}
+  .tot td{background:var(--brand-l)!important; font-weight:700; color:var(--brand-d);}
+  .callout{border-radius:9px; padding:13px 18px; margin:14px 0; border-left:4px solid; font-size:14px;}
+  .callout .ttl{font-weight:700; display:block; margin-bottom:3px;}
+  .co-gold{background:var(--gold-l); border-color:var(--gold); color:#7c5705;}
+  .co-ok{background:var(--ok-l); border-color:var(--ok); color:#136b40;}
+  .co-warn{background:var(--warn-l); border-color:var(--warn); color:#8a3d14;}
+  .co-rose{background:var(--rose-l); border-color:var(--rose); color:#92274f;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:9px; padding:18px 22px; margin:14px 0;}
+  .formula{background:#10243a; color:#e8eef5; border-radius:10px; padding:20px 26px; font-size:16px; line-height:1.9; margin:16px 0; font-family:"SF Mono",Consolas,monospace;}
+  .formula .v{color:#7fd3d3;} .formula .b{color:#ffd479;}
+  .badge{display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:20px; white-space:nowrap;}
+  .b-gold{background:var(--gold-l); color:var(--gold);} .b-teal{background:var(--brand-l); color:var(--brand-d);} .b-rose{background:var(--rose-l); color:var(--rose);}
+  .pipe{display:flex; gap:0; align-items:stretch; margin:18px 0; flex-wrap:wrap;}
+  .pipe .box{flex:1; min-width:150px; background:var(--card); border:1px solid var(--line); border-radius:9px; padding:14px 16px; text-align:center;}
+  .pipe .box .h{font-size:13px; color:var(--muted);} .pipe .box .v{font-size:22px; font-weight:800; color:var(--brand-d); margin-top:4px;}
+  .pipe .op{display:flex; align-items:center; padding:0 10px; font-size:24px; color:var(--muted); font-weight:700;}
+  footer{margin-top:50px; padding:22px 50px; border-top:1px solid var(--line); color:var(--muted); font-size:12.5px;}
+  @media print{nav.toc{display:none;} .layout{display:block;} .wrap,header.hero,footer{padding-left:20px;padding-right:20px;}}
+  @media (max-width:880px){nav.toc{display:none;} .wrap,header.hero,footer{padding-left:20px;padding-right:20px;}}
+</style>
+</head>
+<body>
+<div class="layout">
+<!--TOC-->
+<nav class="toc">
+  <div class="brand">助教验收与评分操作手册</div>
+  <div class="sub">算法驱动的迷宫探险游戏开发<br>2025–2026 春季 · 配套《助教研究生工作手册》</div>
+  <div class="grp">总览</div>
+  <a href="#s0">0 · 怎么用这份手册</a>
+  <a href="#s1">1 · 总分怎么算(一图看懂)</a>
+  <a href="#s2">2 · 四大组成与权重</a>
+  <div class="grp">逐项评分细则</div>
+  <a href="#s3">3 · 代码测评(25)</a>
+  <a href="#s4">4 · 阶段测试·设计组(30)</a>
+  <a href="#s5">5 · 阶段测试·AI 组(30)</a>
+  <a href="#s6">6 · 交叉验证(25)</a>
+  <a href="#s7">7 · 课题报告(20)</a>
+  <div class="grp">合成最终分</div>
+  <a href="#s8">8 · 组分 → 个人分</a>
+  <a href="#s9">9 · 完整算例(照着算)</a>
+  <a href="#s10">10 · 记录表与上报</a>
+</nav>
+
+<main>
+<!--CONTENT-->
+<header class="hero">
+  <span class="tag">SCORING SOP · 助教专用</span>
+  <h1>助教验收与评分操作手册</h1>
+  <div class="scope">🎓 本评分标准仅适用于<u>物联网专业</u>学生</div>
+  <p>这份手册给两位助教研究生:照着它,你能对每位学生算出一个有依据、可复核的最终分。每一项都给了<strong>具体评分细则(打分表)</strong>,最后给出<strong>从原始记录到个人最终分的完整计算流程和算例</strong>——含课题报告的给分。</p>
+</header>
+<div class="wrap">
+
+<section id="s0">
+<h2><span class="num">0</span>怎么用这份手册</h2>
+<div class="callout co-rose">
+  <span class="ttl">🎓 适用范围</span>
+  <strong>本评分标准仅适用于物联网专业学生。</strong>其他专业的课程设计如沿用,需经主讲老师确认权重与细则后再用。
+</div>
+<div class="callout co-gold">
+  <span class="ttl">⚠ 先读这一段</span>
+  本手册把每位学生的最终分拆成<strong>可机械执行的步骤</strong>。你不需要"凭感觉"打分——每一项都有打分表,照表勾选、累加即可。遇到拿不准的(疑似作弊、结果优于标准答案、贡献纠纷),<strong>记录证据后交主讲老师裁定</strong>,不要自行决断。
+</div>
+<h4>整体流程(三步)</h4>
+<ol>
+  <li><strong>平时按项记录</strong>:每次阶段测试、代码测评、交叉验证,按第 3–6 章的打分表当场打分,记进 <code>验收表.xlsx</code>。</li>
+  <li><strong>收尾评报告</strong>:按第 7 章打分表给每组报告打分。</li>
+  <li><strong>合成最终分</strong>:按第 8 章把四项加权成"组分",再用"贡献系数"折算到每位学生(第 9 章有完整算例)。</li>
+</ol>
+<div class="callout co-warn">
+  <span class="ttl">关于权重和档位</span>
+  本手册的<strong>权重(25/30/25/20)和各档分值是建议标准</strong>,与《教师指导与验收手册》保持一致。<strong>若主讲老师另有评分细则,以老师为准</strong>——需要改时,只改第 2 章的权重表和各章打分表的分值,第 8 章的计算方法不变。
+</div>
+</section>
+
+<section id="s1">
+<h2><span class="num">1</span>总分怎么算(一图看懂)</h2>
+<p>先算<strong>小组分</strong>(满分 100)→ 乘<strong>贡献系数</strong>得<strong>个人数值分</strong> → 全体排序按<strong>学院比例</strong>定<strong>五分制等级</strong>。</p>
+<div class="card">
+<h4 style="margin-top:0;">第一步:四项加权 → 小组分(满分 100)</h4>
+<div class="pipe">
+  <div class="box"><div class="h">代码测评</div><div class="v">25</div></div>
+  <div class="op">+</div>
+  <div class="box"><div class="h">阶段测试</div><div class="v">30</div></div>
+  <div class="op">+</div>
+  <div class="box"><div class="h">交叉验证</div><div class="v">25</div></div>
+  <div class="op">+</div>
+  <div class="box"><div class="h">课题报告</div><div class="v">20</div></div>
+  <div class="op">=</div>
+  <div class="box" style="background:var(--brand-l);"><div class="h">小组分 G</div><div class="v">100</div></div>
+</div>
+<h4>第二步:小组分 × 贡献系数 → 个人数值分</h4>
+<div class="formula">
+  个人数值分<sub>i</sub> = <span class="v">小组分 G</span> × <span class="b">贡献系数<sub>i</sub></span>　　(系数在 0.4~1.6 间,见 <a class="inline" href="#s8" style="color:#7fd3d3;">第 8 章</a>)
+</div>
+<h4>第三步:数值分排序 + 学院比例 → 五分制等级</h4>
+<div class="formula">
+  全体学生按<span class="v">数值分</span>排序　+　<span class="b">学院给定的各等级人数比例</span>　→　优 / 良 / 中 / 合格 / 不合格
+</div>
+</div>
+<div class="callout co-rose">
+  <span class="ttl">🎯 最终成绩是"五分制等级",不是数值分</span>
+  上面算出的<strong>数值分只是排序依据</strong>。<strong>最终成绩采用五分制(优、良、中、合格、不合格)</strong>,按学院下达的各等级人数比例、由数值分从高到低排序后划定(详见 <a class="inline" href="#s8">8.4</a>)。
+</div>
+<div class="callout co-ok">
+  <span class="ttl">✓ 关键认识</span>
+  <strong>同一组所有人先拿同一个"组分"</strong>(因为代码、阶段测试、交叉验证、报告都是全组共同成果),<strong>再按组内分工与贡献的差异微调到个人数值分</strong>,<strong>最后全体排序、按学院比例定等级</strong>。
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>四大组成与权重</h2>
+<table>
+  <tr><th style="width:130px;">组成部分</th><th class="pt" style="width:60px;">满分</th><th>考查什么 / 数据来源</th><th style="width:130px;">细则</th></tr>
+  <tr><td><strong>代码测评</strong></td><td class="pt">25</td><td>系统平台智能体测评:能否通过指定必做题 + 静态代码审查质量</td><td><a class="inline" href="#s3">第 3 章</a></td></tr>
+  <tr><td><strong>阶段测试</strong></td><td class="pt">30</td><td>两次阶段验收,现场运行 + 口头讲解,按任务逐项打分</td><td><a class="inline" href="#s4">设计组</a> / <a class="inline" href="#s5">AI 组</a></td></tr>
+  <tr><td><strong>交叉验证</strong></td><td class="pt">25</td><td>互测矩阵经打分脚本得出,映射到 25 分</td><td><a class="inline" href="#s6">第 6 章</a></td></tr>
+  <tr><td><strong>课题报告</strong></td><td class="pt">20</td><td>伪代码、复杂度、实验图表、创新点、分工标注</td><td><a class="inline" href="#s7">第 7 章</a></td></tr>
+  <tr class="tot"><td>合计(小组分 G)</td><td class="pt">100</td><td colspan="2">四项直接相加,即为该组的小组分</td></tr>
+</table>
+<div class="callout co-gold">
+  <span class="ttl">💡 两类组的差异只在"阶段测试"内部</span>
+  代码测评、交叉验证、报告对两类组算法一致。<strong>阶段测试 30 分的内部细则不同</strong>:设计组分三个任务(第 4 章),AI 组分两个任务(第 5 章)。其余完全相同。
+</div>
+</section>
+<section id="s3">
+<h2><span class="num">3</span>代码测评(满分 25)</h2>
+<p>数据来源:系统平台。两部分构成。</p>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>怎么打</th></tr>
+  <tr><td><strong>必做题通过</strong></td><td class="pt">15</td><td>设计组 4 题 / AI 组 4 题,<strong>每题平台判通过得 3.75 分</strong>(4 题满 15)。部分通过按平台显示的通过比例折算。</td></tr>
+  <tr><td><strong>静态代码审查</strong></td><td class="pt">10</td><td>看平台静态审查结果 + 代码可读性:命名/结构清晰、无明显坏味道。<br>优 9–10 / 良 7–8 / 中 5–6 / 差 ≤4。</td></tr>
+  <tr class="tot"><td>小计</td><td class="pt">25</td><td>两项相加</td></tr>
+</table>
+<div class="callout co-warn">
+  <span class="ttl">⚠ 提醒</span>
+  代码测评是<strong>全组共享一个分</strong>(组内提交同一套代码)。若平台按个人账号判题,取该组成员中<strong>通过情况最好的一份</strong>作为组的代码测评分。
+</div>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>阶段测试 · 迷宫设计组(满分 30)</h2>
+<p>设计组三个任务,分值 <strong>12 + 9 + 9 = 30</strong>。每项现场运行 + 口头讲解,按下表逐条勾分。</p>
+
+<h3>任务① 多方法迷宫生成(12 分)</h3>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td>四种算法各能生成迷宫</td><td class="pt">4</td><td>分治 / MST / 回溯DFS / 分支限界BFS <strong>各 1 分</strong>,现场能跑出迷宫即得。</td></tr>
+  <tr><td>是合法完美迷宫</td><td class="pt">4</td><td>每种迷宫<strong>连通 + 唯一通路</strong>(无孤立区、无环)<strong>各 1 分</strong>。判法:可通行格数 V、边数 E,满足连通且 <code>E=V−1</code>;或用参考程序读入不报错。</td></tr>
+  <tr><td>可视化展示生成过程</td><td class="pt">2</td><td>能展示生成动画/分步图,而非只给最终静态图。完整 2 / 仅静态结果 1 / 无 0。</td></tr>
+  <tr><td>复杂度对比分析</td><td class="pt">2</td><td>能讲清四种算法的时间/空间复杂度差异与迷宫风格差异。充分 2 / 部分 1 / 讲不清 0。</td></tr>
+</table>
+
+<h3>任务② 动态规划资源收集(9 分)</h3>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td><strong>最大资源数正确</strong> <span class="badge b-rose">硬指标</span></td><td class="pt">4</td><td>与标准答案<strong>完全相等</strong>得 4;否则 0(用 <code>task2_DP</code> 参考程序现场算标准值对照)。</td></tr>
+  <tr><td>路径合法</td><td class="pt">2</td><td>不穿墙、每步上下左右相邻、连续;金币/陷阱只首次计分。合法 2 / 小瑕疵 1 / 非法 0。</td></tr>
+  <tr><td>可视化结果</td><td class="pt">2</td><td>能在迷宫上画出收集路径。完整 2 / 简陋 1 / 无 0。</td></tr>
+  <tr><td>讲清 DP 思路</td><td class="pt">1</td><td>能说明"为何要权衡拿不拿某些金币"。能 1 / 不能 0。</td></tr>
+</table>
+
+<h3>任务③ 分支限界 BOSS 战(9 分)</h3>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td><strong>最少回合数正确</strong> <span class="badge b-rose">硬指标</span></td><td class="pt">4</td><td>= 标准答案得 4;<strong>比标准答案更少且能仿真验证</strong>同样得 4(更优,非错);更多则 0。</td></tr>
+  <tr><td>技能序列可验证</td><td class="pt">3</td><td>把序列逐回合仿真:满足冷却约束、按序击败全部 BOSS、长度=所报回合数。通过 3 / 部分 1 / 不通过 0。</td></tr>
+  <tr><td>讲清分支限界思路</td><td class="pt">2</td><td>能说明上界(初始可行解)与下界(剩余血量÷最大伤害)的剪枝。清楚 2 / 部分 1 / 讲不清 0。</td></tr>
+</table>
+
+<div class="callout co-ok">
+  <span class="ttl">✓ 阶段测试记分方式</span>
+  三个任务分布在第 4 次课(任务①)和第 7 次课(任务②③)验收。把三项得分相加即为该组<strong>阶段测试 30 分</strong>。现场一律要求<strong>运行代码 + 临时改输入重跑</strong>,不收静态结果。
+</div>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>阶段测试 · AI 玩家组(满分 30)</h2>
+<p>AI 组两个任务,分值 <strong>15 + 15 = 30</strong>。</p>
+
+<h3>任务① 局部贪心资源拾取(15 分)</h3>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td>跑通全部用例并输出三项</td><td class="pt">4</td><td>对当天下发的每个用例,能输出"资源数 / 步数 / 比值"。全部跑通 4 / 部分 2 / 跑不通 0。</td></tr>
+  <tr><td><strong>真用局部贪心</strong> <span class="badge b-rose">关键</span></td><td class="pt">5</td><td>决策<strong>只基于 3×3 视野 + 已访问记忆</strong>,未对全图跑 BFS/DFS/DP/穷举。合规 5;若发现用全局搜索此项 0 并<strong>记录上报</strong>。</td></tr>
+  <tr><td>讲清贪心评价函数</td><td class="pt">4</td><td>能明确说出"每步按什么指标选方向"(如收益/距离比)。清楚 4 / 含糊 2 / 说不出 0。</td></tr>
+  <tr><td>多用例表现(比值)</td><td class="pt">2</td><td>以多个用例的<strong>平均比值</strong>衡量,在所有 AI 组中横向排名给 0–2(见下方比值打分法)。</td></tr>
+</table>
+
+<h3>任务② 完整迷宫探险(15 分)</h3>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td>能完整通关</td><td class="pt">6</td><td>从 S 出发,完成捡资源 + 打 BOSS + 到 E 全程。能通关 6 / 仅部分流程(如打不过 BOSS)3 / 不能 0。</td></tr>
+  <tr><td>BOSS 战与复活逻辑正确</td><td class="pt">3</td><td>正确处理限定回合、金币复活、已死 BOSS 不回血。正确 3 / 有缺陷 1 / 错误 0。</td></tr>
+  <tr><td>过程可视化</td><td class="pt">3</td><td>能动态/分步展示探险全过程。完整 3 / 简陋 1 / 无 0。</td></tr>
+  <tr><td>表现(剩余资源÷步数)</td><td class="pt">3</td><td>以"剩余资源/总步数"比值衡量,在所有 AI 组中横向排名给 0–3(见下方比值打分法)。</td></tr>
+</table>
+
+<div class="card">
+<h4 style="margin-top:0;">📐 "比值类"项目的统一打分法</h4>
+<p style="font-size:14px;">上面两个"表现"项是<strong>比值越大越好、但无绝对标准</strong>的项。统一用<strong>所有 AI 玩家组之间横向分档</strong>(不是组内成员之间):</p>
+<table>
+  <tr><th>该组比值在所有 AI 组中的位置</th><th class="pt">任务①(满 2)</th><th class="pt">任务②(满 3)</th></tr>
+  <tr><td>前 25%</td><td class="pt">2.0</td><td class="pt">3.0</td></tr>
+  <tr><td>25%–50%</td><td class="pt">1.5</td><td class="pt">2.2</td></tr>
+  <tr><td>50%–75%</td><td class="pt">1.0</td><td class="pt">1.5</td></tr>
+  <tr><td>后 25%(但能完成)</td><td class="pt">0.5</td><td class="pt">0.8</td></tr>
+  <tr><td>未能完成测试</td><td class="pt">0</td><td class="pt">0</td></tr>
+</table>
+<p style="font-size:13px; color:var(--muted); margin-bottom:0;">说明:阶段测试只是"平时表现",最终拉开 AI 组差距主要靠第 6 章交叉验证,这里分档从宽,鼓励完成。</p>
+</div>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>交叉验证(满分 25)</h2>
+<p>第 8 次课进行。把"迷宫 × AI"矩阵喂给打分脚本,脚本输出 <strong>映射后的脚本分</strong>,再换算到 25 分。</p>
+
+<h3>6.1 操作步骤</h3>
+<ol>
+  <li>收齐每个设计组的"最佳迷宫";每个 AI 组在<strong>全部</strong>最佳迷宫上跑,记录"剩余资源÷步数"。</li>
+  <li>整理成 <code>矩阵.csv</code>(行=设计组,列=AI 组,格=比值;空缺留空按 0)。</li>
+  <li>运行推荐脚本(已直接映射到 60–100):
+<div class="formula" style="font-size:13px; line-height:1.7;">cd 老师/测试数据/cross_validation
+python cross_score_matrix_rescaled.py --input ./矩阵.csv --out-dir ./out \
+    --ai-min-score 60 --ai-max-score 100 \
+    --design-min-score 60 --design-max-score 100</div>
+  </li>
+  <li>从 <code>out/ai_scores.csv</code> 取每个 AI 组得分,从 <code>out/design_scores.csv</code> 取每个设计组得分(都是 60–100)。</li>
+</ol>
+
+<h3>6.2 把脚本分换算成 25 分</h3>
+<div class="formula">
+  交叉验证得分 = <span class="v">脚本分</span> ÷ 100 × <span class="b">25</span>
+</div>
+<table>
+  <tr><th>脚本分(ai / design)</th><th class="pt">交叉验证得分(满 25)</th></tr>
+  <tr><td>100</td><td class="pt">25.0</td></tr>
+  <tr><td>90</td><td class="pt">22.5</td></tr>
+  <tr><td>80</td><td class="pt">20.0</td></tr>
+  <tr><td>70</td><td class="pt">17.5</td></tr>
+  <tr><td>60</td><td class="pt">15.0</td></tr>
+</table>
+<div class="callout co-gold">
+  <span class="ttl">💡 两类组都用同一脚本</span>
+  <strong>AI 组分</strong>看它在各迷宫上相对其他 AI 的平均表现;<strong>设计组分</strong>看其迷宫的区分度(D)、稳定性(C)、均衡性(B)的几何平均。你只需取对应那一列的值代入公式,<strong>不必手算公式</strong>。
+</div>
+<div class="callout co-warn">
+  <span class="ttl">⚠ 缺测处理</span>
+  某 AI 组在某迷宫没跑出来,该格留空(脚本按 0),会拉低其交叉验证分——属正常,如实记录,不替学生补分。
+</div>
+</section>
+<section id="s7">
+<h2><span class="num">7</span>课题报告(满分 20)</h2>
+<p>收尾时评。报告是<strong>全组共同成果,先打一个组的报告分</strong>(个人差异留到第 8 章的贡献系数体现)。按下表逐项给分。</p>
+<table>
+  <tr><th>评分项</th><th class="pt">分值</th><th>判定标准</th></tr>
+  <tr><td>格式与篇幅</td><td class="pt">3</td><td>用《计算机学报》模板、格式规范、<strong>页数 ≥ 7</strong>。达标 3 / 基本达标 2 / 不足 1 / 严重不符 0。</td></tr>
+  <tr><td>算法伪代码 / 流程图</td><td class="pt">5</td><td>每个算法都有伪代码或流程图。设计组 4 个算法、AI 组 2 个核心算法,<strong>按"每个齐全"折算</strong>:全齐 5 / 每缺一个降 1–2。</td></tr>
+  <tr><td>复杂度分析</td><td class="pt">5</td><td>每个算法给出时间/空间复杂度<strong>及分析过程</strong>(不是只写结论)。完整 5 / 有结论缺过程 3 / 缺失多 1。</td></tr>
+  <tr><td>实验数据(图/表)</td><td class="pt">3</td><td>用图或表展示实验结果(复杂度对比、迷宫可视化、比值统计等)。充分 3 / 简单 2 / 仅文字 1 / 无 0。</td></tr>
+  <tr><td>创新点</td><td class="pt">2</td><td>给出算法中有创新性的部分并说清。有且言之有物 2 / 牵强 1 / 无 0。</td></tr>
+  <tr><td><strong>分工标注</strong> <span class="badge b-rose">必查</span></td><td class="pt">2</td><td>标注每位组员撰写/负责的部分——<strong>这是第 8 章算个人分的依据</strong>。清晰 2 / 笼统 1 / 无 0。</td></tr>
+  <tr class="tot"><td>小计</td><td class="pt">20</td><td>六项相加,即该组报告分</td></tr>
+</table>
+<div class="callout co-rose">
+  <span class="ttl">🚨 没有分工标注的后果</span>
+  若报告<strong>不标注分工</strong>,此项 0 分,且第 8 章<strong>无法算贡献系数</strong>——这时全组一律按系数 1.00 处理(组分=个人分),记录表备注并上报老师。评报告时第一时间检查这一项。
+</div>
+</section>
+
+<section id="s8">
+<h2><span class="num">8</span>组分 → 个人分(核心)</h2>
+<p>到这一步,你已有每组的<strong>小组分 G</strong>(四项相加,满分 100)。现在把它折算到每位学生。</p>
+
+<h3>8.1 第一步:确定每位成员的"贡献权重"</h3>
+<p>让每组提交<strong>组内分工与贡献比例表</strong>(组长牵头、全员签字),给每位成员一个 <strong>1–10 的贡献权重 w</strong>。你结合<strong>报告的分工标注</strong>和<strong>验收现场各人讲解表现</strong>核验其真实性:</p>
+<ul>
+  <li>声明与现场表现<strong>一致</strong> → 采用其权重。</li>
+  <li>明显<strong>不实</strong>(声称主力却讲不出实现) → 按实际下调其 w,记录表写明理由。</li>
+  <li>组长默认与组员同等评价,不因身份加分。</li>
+</ul>
+
+<h3>8.2 第二步:权重 → 贡献系数</h3>
+<p>每人权重除以全组平均权重得原始系数,再<strong>夹到 [0.4, 1.6]</strong>(只防极端离群值,组内差异基本如实保留):</p>
+<div class="formula">
+  原始系数<sub>i</sub> = <span class="v">w<sub>i</sub></span> ÷ <span class="v">全组平均 w</span><br>
+  贡献系数<sub>i</sub> = clamp(原始系数<sub>i</sub>, <span class="b">0.4</span>, <span class="b">1.6</span>)
+</div>
+<p style="font-size:13.5px; color:var(--muted);">clamp:小于 0.4 取 0.4,大于 1.6 取 1.6,中间不变。区间可由主讲老师调:调宽则组内差距更大,调窄更平均。</p>
+
+<h3>8.3 第三步:个人数值分(排序用,不封顶)</h3>
+<div class="formula">
+  个人数值分<sub>i</sub> = <span class="v">小组分 G</span> × <span class="b">贡献系数<sub>i</sub></span>
+</div>
+<div class="callout co-warn">
+  <span class="ttl">⚠ 不要封顶到 100</span>
+  系数上限是 1.6、组分上限是 100,所以数值分<strong>最高可达 160,会超过 100,这很正常</strong>。<strong>不要把它截到 100。</strong>因为这个数值分<strong>只是第 8.4 步排序用的"排序键",不是写进成绩单的百分制分数</strong>——最终成绩是五分制等级。若强行封顶,105 和 130 会都变成 100、产生并列,反而让排名分不出先后、可能搞错等级分界线。所以原样保留即可,可比较大小就行。
+</div>
+<div class="callout co-ok">
+  <span class="ttl">✓ 四步速记</span>
+  ① 四项加权 → 小组分 G;② 组内权重 ÷ 平均 → 夹到 [0.4,1.6] → 贡献系数;③ G × 系数 → 个人数值分(<strong>不封顶</strong>,仅作排序);④ 全体按数值分排序 + 学院比例 → 五分制等级(见 8.4)。
+</div>
+<div class="callout co-warn">
+  <span class="ttl">⚠ 必须上报老师的情况</span>
+  ① 疑似作弊(贪心用全局搜索、打表、范式名不副实);② 学生结果<strong>优于</strong>标准答案、拿不准是否给满;③ 组内贡献严重争议;④ 老师要求改权重/系数区间。这些<strong>记录证据后交老师定</strong>。
+</div>
+
+<h3>8.4 第四步:数值分 → 五分制等级</h3>
+<p><strong>最终成绩采用五分制(优、良、中、合格、不合格)。</strong>前三步得到的个人数值分只是<strong>排序依据</strong>,不直接作为最终成绩。做法如下:</p>
+<ol>
+  <li>把<strong>全部学生</strong>按 8.3 算出的个人数值分<strong>从高到低排序</strong>。</li>
+  <li>取学院下达的<strong>各等级人数比例</strong>(优 / 良 / 中 / 合格 / 不合格各占多少)。</li>
+  <li>从最高分往下,依比例<strong>依次划定</strong>每位学生的等级:前若干名为"优",接着为"良",以此类推。</li>
+</ol>
+<div class="formula">
+  个人数值分(排序)　+　学院给定的各等级人数比例　→　<span class="b">五分制等级</span>
+</div>
+<div class="callout co-rose">
+  <span class="ttl">📌 关键</span>
+  <strong>等级由"排名 + 学院比例"共同决定,不是按固定分数线卡。</strong>所以同样的数值分,在不同届、不同比例下可能落在不同等级。各等级具体人数比例<strong>以学院当年下达的为准</strong>,你只负责按数值分排好序、按比例划线。
+</div>
+</section>
+<section id="s9">
+<h2><span class="num">9</span>完整算例(照着算一遍)</h2>
+<p>假设有一个<strong>迷宫设计组"design3"</strong>,4 名成员:张三、李四、王五、赵六。下面把全过程走一遍。</p>
+
+<h3>9.1 先算小组分 G</h3>
+<table>
+  <tr><th>组成部分</th><th class="pt">该组得分</th><th>怎么来的</th></tr>
+  <tr><td>代码测评(满 25)</td><td class="pt">16</td><td>必做题部分通过(12)+ 静态审查中等(4)</td></tr>
+  <tr><td>阶段测试(满 30)</td><td class="pt">18</td><td>任务①8 + 任务②6 + 任务③4(见第 4 章三表累加)</td></tr>
+  <tr><td>交叉验证(满 25)</td><td class="pt">16</td><td>脚本 design3 得分 64 → 64÷100×25 = 16</td></tr>
+  <tr><td>课题报告(满 20)</td><td class="pt">12</td><td>第 7 章六项累加</td></tr>
+  <tr class="tot"><td>小组分 G</td><td class="pt">62</td><td>16 + 18 + 16 + 12 = <strong>62</strong></td></tr>
+</table>
+
+<h3>9.2 再算每人贡献系数</h3>
+<p>该组提交的贡献权重(已核验):张三 10、李四 7、王五 5、赵六 2(赵六明显贡献偏少)。<strong>平均 = (10+7+5+2)/4 = 6.0</strong>。</p>
+<table>
+  <tr><th>成员</th><th class="pt">权重 w</th><th class="pt">原始系数 = w÷6.0</th><th class="pt">夹到[0.4,1.6]</th><th class="pt">个人数值分 = 62×系数</th></tr>
+  <tr><td>张三</td><td class="pt">10</td><td class="pt">1.667</td><td class="pt">1.600 ↓夹</td><td class="pt">62×1.600 = 99.2 → <strong>99</strong></td></tr>
+  <tr><td>李四</td><td class="pt">7</td><td class="pt">1.167</td><td class="pt">1.167</td><td class="pt">62×1.167 = 72.3 → <strong>72</strong></td></tr>
+  <tr><td>王五</td><td class="pt">5</td><td class="pt">0.833</td><td class="pt">0.833</td><td class="pt">62×0.833 = 51.7 → <strong>52</strong></td></tr>
+  <tr><td>赵六</td><td class="pt">2</td><td class="pt">0.333</td><td class="pt">0.400 ↑夹</td><td class="pt">62×0.400 = 24.8 → <strong>25</strong></td></tr>
+</table>
+<div class="callout co-ok">
+  <span class="ttl">✓ 结论</span>
+  这一组小组分 62,折算后:<strong>张三 99、李四 72、王五 52、赵六 25</strong>。注意<strong>"夹到"那一列在起作用</strong>:张三原始系数 1.667 超过上限被夹到 <strong>1.6</strong>、赵六 0.333 低于下限被夹到 <strong>0.4</strong>;李四、王五在 [0.4,1.6] 内,原样不变。可见<strong>组分相同,但因贡献差异而拉开,且极端值被夹住、不会无限放大或归零</strong>。
+</div>
+
+<h3>9.3 AI 组算例(只是交叉验证那一项来源不同)</h3>
+<p>AI 组的流程<strong>完全一样</strong>,唯一区别:</p>
+<ul>
+  <li><strong>阶段测试 30 分</strong>按第 5 章两表(15+15)累加,不是设计组的三表。</li>
+  <li><strong>交叉验证 25 分</strong>取 <code>ai_scores.csv</code> 里该 AI 组的分,同样 ÷100×25。</li>
+</ul>
+<p>例如某 AI 组:代码 20 + 阶段测试 24 + 交叉验证(脚本 88→22)+ 报告 16 = <strong>小组分 82</strong>,再按 8.2 同法折算到每人数值分。</p>
+
+<div class="callout co-rose">
+  <span class="ttl">🎓 别忘了最后一步</span>
+  以上算出的是<strong>个人数值分</strong>。把<strong>全部学生</strong>的数值分汇总排序后,再按学院给定比例划定<strong>五分制等级</strong>(见 <a class="inline" href="#s8">8.4</a>)——这才是写进成绩单的最终成绩。
+</div>
+</section>
+
+<section id="s10">
+<h2><span class="num">10</span>记录表与上报</h2>
+<h3>10.1 每组要在 <code>验收表.xlsx</code> 记下的列</h3>
+<table>
+  <tr><th>列</th><th>内容</th></tr>
+  <tr><td>组名 / 类型</td><td>design3 / 迷宫设计组(或 AI 玩家组)</td></tr>
+  <tr><td>代码测评</td><td>0–25</td></tr>
+  <tr><td>阶段测试</td><td>0–30(可再拆出各任务子分备查)</td></tr>
+  <tr><td>交叉验证</td><td>0–25(附脚本原始分)</td></tr>
+  <tr><td>课题报告</td><td>0–20</td></tr>
+  <tr><td><strong>小组分 G</strong></td><td>四项之和,0–100</td></tr>
+  <tr><td>每位成员:权重 w / 系数 / 个人数值分 / 五分制等级</td><td>逐人一行(等级在全体排序、按学院比例划定后回填)</td></tr>
+  <tr><td>备注</td><td>异常、上报事项、系数调整理由</td></tr>
+</table>
+
+<h3>10.2 收尾自检清单</h3>
+<div class="card">
+<ul style="margin:0;">
+  <li>☐ 每组四项分都已记录,且各在满分范围内</li>
+  <li>☐ 小组分 G = 四项之和,核对无误</li>
+  <li>☐ 每组都交了<strong>分工与贡献比例表</strong>(没有 → 全组系数 1.00 + 备注)</li>
+  <li>☐ 贡献系数都已夹到 [0.4, 1.6]</li>
+  <li>☐ 个人数值分 = G × 系数,<strong>不封顶</strong>(可 >100,仅作排序键)</li>
+  <li>☐ 全体学生按数值分排序,已按<strong>学院给定比例</strong>划定五分制等级(优/良/中/合格/不合格)</li>
+  <li>☐ 疑似作弊 / 结果优于标准 / 贡献争议,均已记录并上报老师</li>
+  <li>☐ 交叉验证脚本的输出文件已留存备查</li>
+</ul>
+</div>
+<div class="callout co-gold">
+  <span class="ttl">📌 一句话总结</span>
+  <strong>四项加权得组分,组分乘贡献系数得个人分。</strong>每一步都有表可依、有据可查;凡是表里没覆盖、或你拿不准的,记录证据交主讲老师裁定。
+</div>
+</section>
+
+</div>
+<footer>
+  <strong>助教验收与评分操作手册 · 算法驱动的迷宫探险游戏开发</strong><br>
+  2025–2026 学年春季学期 · 与《助教研究生工作手册》《教师指导与验收手册》配套使用<br>
+  本手册的权重(25/30/25/20)、各档分值与系数区间为建议标准,最终以主讲老师的评分细则为准。<strong>本评分标准仅适用于物联网专业学生。</strong>涉及作弊认定、贡献争议、超纲情形,记录证据后交主讲老师裁定。
+</footer>
+</main>
+</div>
+</body>
+</html>

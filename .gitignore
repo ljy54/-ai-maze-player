@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+venv/
+.venv/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# 环境变量
+.env
+
+# OS
+.DS_Store
+Thumbs.db
