@@ -264,11 +264,14 @@ class GreedyPlayer:
                         else:
                             parts.append(f"T({r},{c})必经")
 
-            # 4. 记忆中该方向的金币
+            # 4. 记忆中该方向的金币（跳过当前3×3视野内的，避免与第3段重复计算）
             for g in list(self.known_golds):
                 if g in self.collected_positions:
                     continue
                 gr, gc = g
+                # 若金币在当前3×3视野内，第3段已经算过了，不重复加
+                if abs(gr - r0) <= 1 and abs(gc - c0) <= 1:
+                    continue
                 in_dir = False
                 if dr == -1 and gr <= r0: in_dir = True
                 elif dr == 1 and gr >= r0: in_dir = True
