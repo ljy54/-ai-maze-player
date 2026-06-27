@@ -12,9 +12,24 @@ router = APIRouter()
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 
 
+def _convert_grid_to_maze(grid: list) -> list:
+    """将 case-maze 的 grid 格式转换为内部 maze 格式。
+    P → S（起点），G → G（金币），T → T（陷阱），E → E（出口），. → ' '（空地）。
+    """
+    return [
+        [
+            'S' if ch == 'P' else
+            ' ' if ch == '.' else
+            ch
+            for ch in row
+        ]
+        for row in grid
+    ]
+
+
 @router.get("/mazes")
 async def list_mazes():
-    """返回 data/ 目录下所有迷宫文件列表"""
+    """返回 data/ 目录下所有迷宫文件列表，兼容 maze 和 grid 两种格式"""
     mazes = []
     if os.path.isdir(_DATA_DIR):
         for fname in sorted(os.listdir(_DATA_DIR)):
@@ -23,14 +38,29 @@ async def list_mazes():
                 try:
                     with open(fpath, "r", encoding="utf-8") as f:
                         data = json.load(f)
-                    rows = len(data.get("maze", []))
-                    cols = len(data["maze"][0]) if rows > 0 else 0
+
+                    # 兼容两种格式
+                    if "grid" in data:
+                        # case-maze 的 grid 格式
+                        grid = data["grid"]
+                        rows = len(grid)
+                        cols = len(grid[0]) if rows > 0 else 0
+                        gold_count = sum(1 for r in grid for c in r if c == "G")
+                        trap_count = sum(1 for r in grid for c in r if c == "T")
+                    elif "maze" in data:
+                        rows = len(data["maze"])
+                        cols = len(data["maze"][0]) if rows > 0 else 0
+                        gold_count = sum(1 for r in data["maze"] for c in r if c == "G")
+                        trap_count = sum(1 for r in data["maze"] for c in r if c == "T")
+                    else:
+                        continue  # 不认识的格式，跳过
+
                     mazes.append({
                         "name": fname.replace(".json", ""),
                         "file": fname,
                         "size": f"{rows}×{cols}",
-                        "goldCount": sum(1 for r in data["maze"] for c in r if c == "G"),
-                        "trapCount": sum(1 for r in data["maze"] for c in r if c == "T"),
+                        "goldCount": gold_count,
+                        "trapCount": trap_count,
                     })
                 except Exception:
                     pass
@@ -48,10 +78,23 @@ async def get_maze_file(filename: str):
 
 
 def _parse_request(data: dict) -> dict:
-    """统一解析请求参数，兼容拼写错误"""
+    """统一解析请求参数，兼容 maze 格式和 case-maze 的 grid 格式"""
+    # 检测 grid 格式（case-maze系列）
+    if "grid" in data:
+        maze = _convert_grid_to_maze(data["grid"])
+        return {
+            "maze": maze,
+            "boss_hps": data.get("B", []),
+            "player_skills": data.get("PlayerSkills", []),
+            "min_rounds": data.get("minRouds", data.get("minRounds", 20)),
+            "coin_consumption": data.get("CoinConsumption", data.get("coinConsumption", 5)),
+            "vision_range": 1,
+        }
+
+    # 标准 maze 格式
     maze = data["maze"]
-    bosses = data["B"]
-    skills = data["PlayerSkills"]
+    bosses = data.get("B", [])
+    skills = data.get("PlayerSkills", [])
     min_rounds = data.get("minRouds", data.get("minRounds", 20))
     coin_consumption = data.get("CoinConsumption", data.get("coinConsumption", 5))
     # 任务一视野强制 3×3 九宫格（半径1），忽略前端传值
@@ -122,7 +165,8 @@ async def solve_global(data: dict):
         path=result["path"],
         skillSequence=result["skillSequence"],
         stats=result["stats"],
-        message=f"全局最优完成 | 评价指标: {result['evaluation']['primaryMetric']}",
+        stepScores=result.get("stepScores", []),
+        message=f"局部最优完成 | 评价指标: {result['evaluation']['primaryMetric']}",
     )
 
 

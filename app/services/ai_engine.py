@@ -1,13 +1,14 @@
 """
 AI玩家引擎：统一入口，包含两个独立任务
 - 任务一 (greedy)：贪心实时资源拾取 — 评价指标：平均拾取资源价值
-- 任务二 (global)：全局最优探索 — 评价指标：抵终点时剩余资源价值
+- 任务二 (local_optimal)：九宫格视野贪心最优 — 评价指标：资源获取/路径比值最大
 """
 from typing import List, Tuple
 from .maze_parser import MazeParser
 from .pathfinder import PathFinder
 from .boss_simulator import BossSimulator
 from .greedy_player import GreedyPlayer
+from .local_optimal_player import LocalOptimalPlayer
 
 
 class AIEngine:
@@ -108,82 +109,80 @@ class AIEngine:
         }
 
     # ============================================================
-    #  任务二：全局最优探索
-    #  评价指标：抵终点时剩余资源价值 + 步数/基准值
-    #  算法：全迷宫已知 + DP路径规划 + 分支定界Boss战
+    #  任务二：九宫格视野贪心最优路径
+    #  评价指标：资源获取与路径步数的比值最大化
+    #  算法：3×3视野 + 记忆 + 贪心选择可见最佳金币
+    #  停止条件：九宫格内无未收集资源
     # ============================================================
     def solve_global(self, maze: List[List[str]], boss_hps: List[int],
                      player_skills: List[List[int]], min_rounds: int,
                      coin_consumption: int) -> dict:
-        """任务二：全局最优AI求解"""
+        """任务二：九宫格视野贪心最优AI求解"""
         skills = [(s[0], s[1]) for s in player_skills]
 
-        # Step 1: 解析迷宫
-        parser = MazeParser(maze)
+        # Step 1: 运行局部贪心最优玩家（3×3视野，记忆机制）
+        player = LocalOptimalPlayer(maze, vision_range=1)
+        result = player.run(debug=True)
 
-        # Step 2: DP路径规划
-        pathfinder = PathFinder(parser)
-        best_path, net_gold, collected = pathfinder.find_best_path()
+        # Step 2: 检查迷宫是否有Boss，决定是否需要Boss战
+        boss_pos = player._find('B')
+        reached_boss = boss_pos != (-1, -1) and player.pos == boss_pos
 
-        # Step 3: 统计路径实际经过的金币和陷阱
-        path_gold_positions = set()
-        path_trap_positions = set()
-        for pt in best_path:
-            ch = parser.maze[pt[0]][pt[1]]
-            if ch == "G":
-                path_gold_positions.add(pt)
-            elif ch == "T":
-                path_trap_positions.add(pt)
-
-        actual_gold = len(path_gold_positions) * 50
-        trap_loss = len(path_trap_positions) * 30
-        net_from_path = actual_gold - trap_loss
-
-        # Step 4: Boss战斗
-        simulator = BossSimulator(boss_hps, skills, min_rounds)
-        can_beat, rounds_needed, skill_seq = simulator.solve()
-
-        # Step 5: 综合评估
+        can_beat = False
+        rounds_needed = 0
+        skill_seq = []
+        boss_defeated = False
         revival_cost = 0
-        boss_defeated = can_beat
-        if not can_beat:
-            extra = max(0, rounds_needed - min_rounds)
-            # 每复活一次支付 coinConsumption，获得 minRounds 次额外攻击回合
-            num_revivals = (extra + min_rounds - 1) // min_rounds
-            revival_cost = num_revivals * coin_consumption
-            if net_from_path >= revival_cost:
+
+        # 只有当迷宫有Boss且玩家走到了Boss位置时才模拟战斗
+        if reached_boss and boss_hps:
+            simulator = BossSimulator(boss_hps, skills, min_rounds)
+            can_beat, rounds_needed, skill_seq = simulator.solve()
+
+            if can_beat:
                 boss_defeated = True
             else:
-                revival_cost = 0  # 付不起复活费，不计入
+                extra = max(0, rounds_needed - min_rounds)
+                num_revivals = (extra + min_rounds - 1) // min_rounds
+                revival_cost = num_revivals * coin_consumption
+                if result["netGold"] >= revival_cost:
+                    boss_defeated = True
+                else:
+                    revival_cost = 0
 
-        final_net = net_from_path - revival_cost
+        # Step 3: 计算评价指标
+        ratio = result["netGold"] / max(result["pathLength"], 1)
 
         return {
-            "path": best_path,
+            "path": result["path"],
             "skillSequence": [
                 {"round": s[0] + 1, "skillIndex": s[1], "targetBoss": s[2]}
                 for s in skill_seq
             ],
             "stats": {
-                "totalCoins": actual_gold,
-                "collectedGolds": len(path_gold_positions),
-                "trapDamage": trap_loss,
+                "totalCoins": result["totalGold"],
+                "collectedGolds": result["totalGold"] // 50,
+                "trapDamage": result["trapDamage"],
+                "trapsHit": result["trapsHit"],
                 "bossDefeated": boss_defeated,
                 "roundsUsed": rounds_needed,
                 "minRounds": min_rounds,
                 "revivalCost": revival_cost,
-                "netCoins": final_net,
-                "pathLength": len(best_path),
+                "netCoins": result["netGold"] - revival_cost,
+                "pathLength": result["pathLength"],
+                "ratio": round(ratio, 3),
             },
             # 任务二特有评价字段
             "evaluation": {
-                "strategy": "global_optimal",
-                "algorithms": ["DP_path_planning", "branch_and_bound_boss"],
-                "primaryMetric": "remainingResourceValueAtEnd",
-                "secondaryMetric": "stepsToBenchmarkRatio",
-                "description": "评价指标：抵达终点时剩余资源价值。值越大越好",
-                "remainingValue": final_net,
-                "totalCollected": actual_gold,
-                "pathSteps": len(best_path),
+                "strategy": "local_optimal_greedy",
+                "visionRange": 1,
+                "primaryMetric": "resourcePathRatio",
+                "description": f"评价指标：资源获取/路径步数比值 = {round(ratio, 3)}。比值越大越好。停止原因：{result['stopReason']}",
+                "resourceValue": result["totalGold"],
+                "trapPenalty": result["trapDamage"],
+                "netValue": result["netGold"],
+                "pathSteps": result["pathLength"],
+                "ratio": round(ratio, 3),
             },
+            "stepScores": result.get("stepScores", []),
         }

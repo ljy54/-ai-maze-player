@@ -226,7 +226,7 @@ class GreedyPlayer:
             #    有备选路线时打折 → 降低"回头找安全路"的门槛
             recent = set(self.path[-min(len(self.path), 4):])
             if (nr, nc) in recent:
-                base_backtrack = 15.0
+                base_backtrack = 10.0
                 backtrack_discount = 0.0
                 if trap_is_only_way:
                     backtrack_discount = 0.5 * (1.0 - trap_acceptance)
@@ -274,10 +274,10 @@ class GreedyPlayer:
                 if abs(gr - r0) <= 1 and abs(gc - c0) <= 1:
                     continue
                 in_dir = False
-                if dr == -1 and gr <= r0: in_dir = True
-                elif dr == 1 and gr >= r0: in_dir = True
-                elif dc == -1 and gc <= c0: in_dir = True
-                elif dc == 1 and gc >= c0: in_dir = True
+                if dr == -1 and gr < r0: in_dir = True
+                elif dr == 1 and gr > r0: in_dir = True
+                elif dc == -1 and gc < c0: in_dir = True
+                elif dc == 1 and gc > c0: in_dir = True
                 if in_dir:
                     dist = max(abs(gr - r0) + abs(gc - c0), 1)
                     val = GOLD_VALUE / dist  # 已知未收金币与视野内同等权重

@@ -80,7 +80,7 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
     <div class="task-selector">
       <span style="font-size:11px;color:#889;">AI模式:</span>
       <button class="task-btn active" id="btn-mode-greedy" onclick="switchMode('greedy')">🟢 任务一：贪心拾取</button>
-      <button class="task-btn" id="btn-mode-global" onclick="switchMode('global')">🔵 任务二：全局最优</button>
+      <button class="task-btn" id="btn-mode-global" onclick="switchMode('global')">🔵 任务二：局部最优</button>
     </div>
   </div>
 </div>
@@ -226,8 +226,8 @@ function switchMode(mode) {
     badge.style.color = '#2ecc71';
   } else {
     desc.className = 'eval-box global-eval';
-    desc.innerHTML = '<strong>📌 任务二说明：</strong>全局最优探索<br>全迷宫已知，DP路径规划 + 分支定界Boss战<br><strong>评价指标：</strong>抵终点时剩余资源价值';
-    badge.innerHTML = '[任务二：全局最优]';
+    desc.innerHTML = '<strong>📌 任务二说明：</strong>九宫格视野贪心最优<br>视野3×3九宫格 + 记忆，贪心选择比值最高金币<br><strong>评价指标：</strong>资源获取/路径步数比值（越大越好）<br><strong>停止条件：</strong>九宫格内无未收集资源，不强制找出口';
+    badge.innerHTML = '[任务二：局部最优]';
     badge.style.color = '#3498db';
   }
   result = null;
@@ -263,7 +263,7 @@ async function doSolve() {
     document.getElementById('anim-section').style.display = 'block';
     animReset();
     renderBattleTab(0);
-    showToast('求解完成! (' + (currentMode === 'greedy' ? '贪心' : '全局最优') + ')', 'success');
+    showToast('求解完成! (' + (currentMode === 'greedy' ? '贪心' : '局部最优') + ')', 'success');
   } catch(e) { showToast(e.message, 'error'); result = null; }
   btn.disabled = false;
   btn.textContent = '▶ 运行AI';
@@ -346,17 +346,26 @@ function renderResult() {
   const hlClass = isGreedy ? 'highlight' : 'highlight global-hl';
 
   let html = `<div class="stat-grid">`;
-  html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins}</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">陷阱伤害</div><div class="stat-value">💀 -${s.trapDamage}</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">路径长度</div><div class="stat-value">👣 ${s.pathLength}步</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">击败Boss</div><div class="stat-value">${s.bossDefeated?'✅ 是':'❌ 否'}</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">使用回合</div><div class="stat-value">⏱ ${s.roundsUsed}/${s.minRounds}</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">复活消耗</div><div class="stat-value">🪙 ${s.revivalCost}</div></div>`;
-  html += `<div class="stat-card ${hlClass}"><div class="stat-label">净收益</div><div class="stat-value">📈 ${s.netCoins}金币</div></div>`;
-  html += `<div class="stat-card"><div class="stat-label">收集金币数</div><div class="stat-value">📊 ${s.collectedGolds}个</div></div>`;
-
-  if (isGreedy && s.trapsHit !== undefined) {
-    html += `<div class="stat-card"><div class="stat-label">触发陷阱次数</div><div class="stat-value">⚠️ ${s.trapsHit}次</div></div>`;
+  if (isGreedy) {
+    // 任务一：净收益高亮
+    html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins}</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">陷阱伤害</div><div class="stat-value">💀 -${s.trapDamage}</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">路径长度</div><div class="stat-value">👣 ${s.pathLength}步</div></div>`;
+    html += `<div class="stat-card ${hlClass}"><div class="stat-label">净收益</div><div class="stat-value">📈 ${s.netCoins}金币</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">收集金币数</div><div class="stat-value">📊 ${s.collectedGolds}个</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">击败Boss</div><div class="stat-value">${s.bossDefeated?'✅ 是':'❌ 否'}</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">使用回合</div><div class="stat-value">⏱ ${s.roundsUsed}/${s.minRounds}</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">复活消耗</div><div class="stat-value">🪙 ${s.revivalCost}</div></div>`;
+    if (s.trapsHit !== undefined) {
+      html += `<div class="stat-card"><div class="stat-label">触发陷阱次数</div><div class="stat-value">⚠️ ${s.trapsHit}次</div></div>`;
+    }
+  } else {
+    // 任务二：比值高亮
+    html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins} (${s.collectedGolds}个)</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">陷阱伤害</div><div class="stat-value">💀 -${s.trapDamage} (${s.trapsHit||0}次)</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">净收益</div><div class="stat-value">📈 ${s.netCoins}金币</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">移动步数</div><div class="stat-value">👣 ${s.pathLength}步</div></div>`;
+    html += `<div class="stat-card ${hlClass}"><div class="stat-label">资源/路径比值</div><div class="stat-value">📊 ${(s.ratio||0).toFixed(3)}</div></div>`;
   }
   html += `</div>`;
 
@@ -365,7 +374,7 @@ function renderResult() {
   html += `<strong>📊 评价指标：</strong>`;
   html += isGreedy
     ? `平均拾取资源价值 = ${s.totalCoins} - ${s.trapDamage} = <strong>${s.netCoins}</strong> 金币<br><span style="font-size:10px;color:#889;">（需在多个不同迷宫上运行取均值）</span>`
-    : `抵终点时剩余资源价值 = <strong>${s.netCoins}</strong> 金币<br><span style="font-size:10px;color:#889;">（值越大越好，同时参考 ${s.pathLength} 步的步数基准）</span>`;
+    : `资源/路径比值 = ${s.netCoins} / ${s.pathLength} = <strong>${(s.ratio || 0).toFixed(3)}</strong><br><span style="font-size:10px;color:#889;">（净收益÷步数，越大越好；九宫格内无资源时自动停止）</span>`;
   html += `</div>`;
 
   panel.innerHTML = html;
@@ -382,12 +391,12 @@ function renderCompareResult() {
   html += `<h4>⚖ 两个任务对比</h4>`;
   html += `<div class="compare-row">`;
   html += `<div class="compare-col greedy"><div style="font-size:10px;color:#2ecc71;">🟢 任务一：贪心</div><div class="val" style="color:#2ecc71;">${g.netCoins}</div><div style="font-size:10px;">净收益</div><div style="font-size:9px;color:#889;">路径:${g.pathLength}步 | 金币:${g.totalCoins}</div></div>`;
-  html += `<div class="compare-col global"><div style="font-size:10px;color:#3498db;">🔵 任务二：全局最优</div><div class="val" style="color:#3498db;">${gl.netCoins}</div><div style="font-size:10px;">净收益</div><div style="font-size:9px;color:#889;">路径:${gl.pathLength}步 | 金币:${gl.totalCoins}</div></div>`;
+  html += `<div class="compare-col global"><div style="font-size:10px;color:#3498db;">🔵 任务二：局部最优</div><div class="val" style="color:#3498db;">${gl.netCoins}</div><div style="font-size:10px;">净收益</div><div style="font-size:9px;color:#889;">路径:${gl.pathLength}步 | 金币:${gl.totalCoins} | 比值:${(gl.ratio||0).toFixed(2)}</div></div>`;
   html += `</div>`;
   html += `<div style="margin-top:6px;font-size:10px;text-align:center;">`;
   html += `净收益差: <strong>${c.netCoinsDiff > 0 ? '+' : ''}${c.netCoinsDiff}</strong>金币 | `;
   html += `路径差: <strong>${c.pathLengthDiff > 0 ? '+' : ''}${c.pathLengthDiff}</strong>步 | `;
-  html += `更优策略: <strong style="color:${c.betterStrategy==='global'?'#3498db':'#2ecc71'}">${c.betterStrategy==='global'?'任务二：全局最优':'任务一：贪心'}</strong>`;
+  html += `更优策略: <strong style="color:${c.betterStrategy==='global'?'#3498db':'#2ecc71'}">${c.betterStrategy==='global'?'任务二：局部最优':'任务一：贪心'}</strong>`;
   html += `</div></div>`;
   panel.innerHTML = html;
 }
@@ -521,7 +530,8 @@ function renderAnimFrame() {
   document.getElementById('anim-step-count').textContent = moveCount;
 
   // 方向评分可视化
-  // 注意：animIdx 包含Boss战动画步，需折算为移动步索引
+  // 任务一格式: sc.scores = {方向: {score, pos, ch, details, chosen}}
+  // 任务二格式: sc.candidates = [{pos, dist, traps, netGain, ratio, source, chosen}]
   const scorePanel = document.getElementById('score-panel');
   let moveIdx = -1;
   for (let i = 0; i <= animIdx; i++) {
@@ -529,9 +539,11 @@ function renderAnimFrame() {
   }
   if (result && result.stepScores && moveIdx >= 0 && moveIdx < result.stepScores.length && step.type === 'move') {
     const sc = result.stepScores[moveIdx];
-    if (sc && sc.scores) {
+    let html = '';
+
+    // 四方向评分（任务一/二共用）
+    if (sc.scores) {
       const arrows = {'(-1,+0)':'↑','(+1,+0)':'↓','(0,-1)':'←','(0,+1)':'→'};
-      let html = '';
       const entries = Object.entries(sc.scores);
       entries.sort((a,b) => b[1].score - a[1].score);
       for (const [dir, info] of entries) {
@@ -542,18 +554,24 @@ function renderAnimFrame() {
         const scoreColor = info.score >= 0 ? '#2ecc71' : '#e74c3c';
         const chIcon = info.ch === 'G' ? '💰' : info.ch === 'T' ? '💀' : info.ch === '#' ? '🧱' : '⬜';
         const scoreText = isWall ? '墙' : (info.score>=0?'+':'')+info.score.toFixed(1);
-        html += `<div style="background:${bg};border:${border};border-radius:6px;padding:6px 8px;font-size:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:13px;">${arrow} (${info.pos[0]},${info.pos[1]}) ${chIcon}</span>
-            <span style="color:${isWall?'#666':scoreColor};font-weight:bold;font-size:14px;">${scoreText}</span>
-          </div>
-          <div style="color:#aab;font-size:11px;margin-top:2px;">${info.details.join(' ')}</div>
-        </div>`;
+        html += '<div style="background:'+bg+';border:'+border+';border-radius:6px;padding:6px 8px;font-size:12px;">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+            '<span style="font-size:13px;">'+arrow+' ('+info.pos[0]+','+info.pos[1]+') '+chIcon+'</span>'+
+            '<span style="color:'+(isWall?'#666':scoreColor)+';font-weight:bold;font-size:14px;">'+scoreText+'</span>'+
+          '</div>'+
+          '<div style="color:#aab;font-size:11px;margin-top:2px;">'+info.details.join(' ')+'</div>'+
+        '</div>';
       }
-      scorePanel.innerHTML = html;
-    } else {
-      scorePanel.innerHTML = '';
     }
+    // 任务二累计统计（在方向评分下方显示）
+    if (sc.stats && sc.stats.ratio !== undefined) {
+      html += '<div style="background:#16213e;border-radius:4px;padding:6px 8px;margin-top:6px;font-size:10px;color:#aab;display:flex;gap:10px;">'+
+        '<span>净收益: <b style="color:#2ecc71;">'+sc.stats.netGold+'</b></span>'+
+        '<span>步数: <b>'+sc.stats.moveCount+'</b></span>'+
+        '<span>比值: <b style="color:#3498db;">'+sc.stats.ratio.toFixed(2)+'</b></span>'+
+      '</div>';
+    }
+    scorePanel.innerHTML = html;
   } else {
     scorePanel.innerHTML = '';
   }
