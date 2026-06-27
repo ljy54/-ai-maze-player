@@ -102,7 +102,7 @@ class LocalOptimalPlayer:
         return golds, traps
 
     # ============================================================
-    #  路径搜索（BFS，用于计算距离和路径）
+    #  路径搜索
     # ============================================================
 
     def _bfs_path(self, start: Tuple[int, int],
@@ -377,6 +377,7 @@ class LocalOptimalPlayer:
         """
         max_steps = self.rows * self.cols * 3
         step = 0
+        stop_reason = "无可探索资源"
 
         while step < max_steps:
             step += 1
@@ -388,8 +389,9 @@ class LocalOptimalPlayer:
             available_known = [g for g in self.known_golds
                               if g not in self.collected_positions]
             if not visible_golds and not available_known:
+                stop_reason = "视野和记忆中均无未收集金币"
                 if debug:
-                    print(f"  [停止] 视野和记忆中均无未收集金币 (步数={step})")
+                    print(f"  [停止] {stop_reason} (步数={step})")
                 break
 
             # 3. 可见金币优先；视野无金币时用记忆导航
@@ -403,16 +405,31 @@ class LocalOptimalPlayer:
                 target_gold, ratio, path, candidates = self._evaluate_visible_golds(visible_golds)
 
             if target_gold is None:
+                stop_reason = "无可达金币"
                 if debug:
-                    print(f"  [警告] 无可达金币，停止")
+                    print(f"  [警告] {stop_reason}，停止")
+                break
+
+            # 2.5 比值收益检查：吃下一个金币后累计比值是否下降
+            current_move = len(self.path) - 1
+            current_net = self.collected_gold - self.traps_hit * TRAP_COST
+            current_ratio = current_net / max(current_move, 1)
+
+            dist_to_gold = len(path) - 1
+            traps_to_gold = self._count_traps_on_path(path)
+            future_net = current_net + GOLD_VALUE - traps_to_gold * TRAP_COST
+            future_moves = current_move + dist_to_gold
+            future_ratio = future_net / max(future_moves, 1)
+
+            if future_ratio < current_ratio and current_move > 0:
+                stop_reason = f"比值收益下降（当前{current_ratio:.2f} -> 吃完后{future_ratio:.2f}）"
+                if debug:
+                    print(f"  [停止] {stop_reason} (步数={step})")
                 break
 
             next_pos = path[1]  # BFS路径的下一步
 
             # 构建步评分数据（候选金币 + 四方向评分）
-            current_move = len(self.path) - 1
-            current_net = self.collected_gold - self.traps_hit * TRAP_COST
-            current_ratio = current_net / max(current_move, 1)
             dir_scores = self._score_directions(next_pos)
             self._step_scores.append({
                 "pos": list(self.pos),
@@ -433,8 +450,9 @@ class LocalOptimalPlayer:
                       f" 距离={len(path)-1}步 金币+{GOLD_VALUE}")
 
             if next_pos == self.pos:
+                stop_reason = "无法移动"
                 if debug:
-                    print(f"  [错误] 无法移动，停止")
+                    print(f"  [错误] {stop_reason}，停止")
                 break
 
             # 5. 移动
@@ -471,6 +489,6 @@ class LocalOptimalPlayer:
             "reachedEnd": False,
             "visionRange": self.vision,
             "strategy": "local_optimal_greedy",
-            "stopReason": "无可探索资源（视野和记忆中均无未收集金币）",
+            "stopReason": stop_reason,
             "stepScores": self._step_scores,
         }
