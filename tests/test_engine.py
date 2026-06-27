@@ -1,6 +1,8 @@
 """测试AI引擎的完整流程"""
 import sys
-sys.path.insert(0, "e:/projects/ai-maze-player/backend")
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.ai_engine import AIEngine
 from app.services.maze_parser import MazeParser
@@ -9,7 +11,8 @@ from app.services.boss_simulator import BossSimulator
 import json
 
 # 加载测试数据
-with open("e:/projects/maze_15_15.json", "r") as f:
+test_data_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "maze_15_15.json")
+with open(test_data_path, "r") as f:
     data = json.load(f)
 
 maze = data["maze"]
@@ -75,7 +78,7 @@ if skill_seq:
 # 4. 全局AI引擎
 print("\n📋 Step 4: 全局AI引擎")
 engine = AIEngine()
-result = engine.solve(maze, boss_hps, skills_raw, min_rounds, coin_consumption)
+result = engine.solve_global(maze, boss_hps, skills_raw, min_rounds, coin_consumption)
 
 print(f"  成功: {result['stats']}")
 print(f"  路径长度: {result['stats']['pathLength']}")

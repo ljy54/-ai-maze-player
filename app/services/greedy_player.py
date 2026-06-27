@@ -83,20 +83,21 @@ class GreedyPlayer:
     #  有限深度前沿搜索（仅在必经陷阱时使用，非全局BFS）
     # ============================================================
 
-    def _count_accessible_frontier(self, from_pos: Tuple[int, int] = None,
-                                     max_depth: int = None) -> int:
-        """统计指定位置 3×3 视野内"未访问、安全、非死胡同"的格子数。
+    def _count_accessible_frontier(self, from_pos: Tuple[int, int] = None) -> int:
+        """统计AI九宫格内与目标格相邻的"未访问、安全、非死胡同"格子数。
 
-        严格限制在 vision_range=1 的 3×3 九宫格内，不沿已访问路径向外延伸。
-        用于判断"当前/下一步位置附近是否还有备选路线"。
-
-        max_depth 参数保留以兼容旧调用，实际不再使用。
+        只统计AI当前位置的3×3九宫格范围内的格子——AI看不到九宫格外，
+        所以九宫格外的邻居不算前沿。
         """
-        pos = from_pos if from_pos is not None else self.pos
-        r0, c0 = pos
+        tgt = from_pos if from_pos is not None else self.pos
+        r_ai, c_ai = self.pos       # AI位置（九宫格中心）
+        r_tgt, c_tgt = tgt           # 目标格
         count = 0
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            nr, nc = r0 + dr, c0 + dc
+            nr, nc = r_tgt + dr, c_tgt + dc
+            # 只统计AI九宫格内的格子（看不见的不算）
+            if abs(nr - r_ai) > 1 or abs(nc - c_ai) > 1:
+                continue
             if not self.is_passable(nr, nc):
                 continue
             if (nr, nc) in self.visited:
@@ -148,7 +149,7 @@ class GreedyPlayer:
         #  核心思想：不只问"是否必经"，而问"附近还有多少备选路线"
         # ============================================================
         STEP_COST = 1.5          # 每步基础成本，鼓励短路径
-        FRONTIER_THRESHOLD = 3   # 多少个前沿格子算"备选充足"（3×3视野最多4方向）
+        FRONTIER_THRESHOLD = 2   # 多少个前沿格子算"备选充足"（每方向九宫格内最多2个）
 
         all_nb = self.get_neighbors(self.pos)
         new_safe = [n for n in all_nb
@@ -303,9 +304,10 @@ class GreedyPlayer:
                 if dir_ch != 'T' or n_frontier_dir >= MIN_FRONTIER_FOR_TRAP:
                     parts.append(f"前沿{n_frontier_dir}+{frontier_score:.1f}")
             else:
-                # 无前沿 → 死路，轻微惩罚
-                score -= 2.0
-                parts.append(f"死路-2")
+                # 九宫格内前沿=0（可能是走廊看不清，也可能是真死路）
+                # 不额外惩罚：探索奖励和重复惩罚自然会引导——
+                # 真死路走到底没路自然回头，走廊看不清走进去就看清了
+                parts.append(f"前沿0")
 
             scores[(dr, dc)] = (score, parts)
 
