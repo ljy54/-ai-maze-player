@@ -380,8 +380,6 @@ class LocalOptimalPlayer:
         stop_reason = "无可探索资源"
 
         while step < max_steps:
-            step += 1
-
             # 1. 扫描3×3视野
             visible_golds, visible_traps = self.scan_visible()
 
@@ -470,6 +468,8 @@ class LocalOptimalPlayer:
                     print(f"  [收集] ({self.pos[0]},{self.pos[1]}) {ch}")
                 else:
                     print(f"  [移动] 到 ({self.pos[0]},{self.pos[1]})")
+
+            step += 1
 
         # 统计（步数不含起点）
         trap_loss = self.traps_hit * TRAP_COST

@@ -6,6 +6,7 @@ AI玩家任务一：基于局部贪心算法的实时资源拾取
 - 评价指标：平均拾取资源价值
 """
 from typing import List, Tuple, Set, Optional
+from collections import deque
 
 # 资源价值常量
 GOLD_VALUE = 50
@@ -44,6 +45,16 @@ class GreedyPlayer:
         self._visit_count: dict = {}  # 每格访问次数（防震荡）
         self._step_scores: list = []  # 每步方向评分（前端可视化用）
 
+        # 路口记忆（用于必经陷阱时的回溯决策）
+        self._junctions: Set[Tuple[int, int]] = set()  # 已发现的路口位置
+        self._last_junction: Optional[Tuple[int, int]] = None  # 最近的路口
+        self._steps_since_junction: int = 0  # 距离最近路口多少步
+        self._backtrack_cooldown: int = 0  # 回溯冷却计数器（防震荡）
+        self._backtrack_path: Optional[List[Tuple[int, int]]] = None  # 回溯执行的完整路径
+
+        # 必经陷阱记忆：回溯时记住陷阱位置，用于后续方向平局时打破僵局
+        self._remembered_mandatory_trap: Optional[Tuple[int, int]] = None
+
     # ============================================================
     #  基础工具方法
     # ============================================================
@@ -72,6 +83,74 @@ class GreedyPlayer:
 
     def _manhattan(self, a: Tuple[int, int], b: Tuple[int, int]) -> int:
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    def _bfs_in_visited(self, target: Tuple[int, int]
+                         ) -> Optional[List[Tuple[int, int]]]:
+        """在已访问区域内BFS寻路到目标。只走 self.visited 中的格子。
+        返回路径（含起点终点），不可达返回 None。"""
+        start = self.pos
+        if start == target:
+            return [start]
+        if target not in self.visited:
+            return None
+
+        prev = {start: None}
+        q = deque([start])
+        while q:
+            cur = q.popleft()
+            if cur == target:
+                break
+            for nb in self.get_neighbors(cur):
+                # 只能走已访问过的格子
+                if nb not in prev and nb in self.visited:
+                    prev[nb] = cur
+                    q.append(nb)
+
+        if target not in prev:
+            return None
+
+        path = []
+        cur = target
+        while cur is not None:
+            path.append(cur)
+            cur = prev[cur]
+        path.reverse()
+        return path
+
+    def _is_junction(self, pos: Tuple[int, int]) -> bool:
+        """判断一个位置是否为路口：有2个以上未访问的安全可通行邻居"""
+        nb = self.get_neighbors(pos)
+        unvisited_safe = [n for n in nb
+                          if n not in self.visited
+                          and self._is_safe(n)
+                          and n not in self._dead_ends]
+        return len(unvisited_safe) >= 2
+
+    def _update_junction_tracking(self):
+        """更新路口记忆、距离计数和回溯冷却"""
+        self._steps_since_junction += 1
+        if self._backtrack_cooldown > 0:
+            self._backtrack_cooldown -= 1
+        if self._is_junction(self.pos):
+            self._junctions.add(self.pos)
+            self._last_junction = self.pos
+            self._steps_since_junction = 0
+
+    def _build_score_data(self, scores: dict, best_nb: Tuple[int, int]) -> dict:
+        """将 tuple 格式的 scores 转为前端需要的 dict 格式。"""
+        r0, c0 = self.pos
+        score_data = {}
+        for (dr, dc), (sc, parts) in scores.items():
+            nr, nc = r0 + dr, c0 + dc
+            ch = self.maze[nr][nc] if (0 <= nr < self.rows and 0 <= nc < self.cols) else '#'
+            score_data[f"({dr:+d},{dc:+d})"] = {
+                "pos": [nr, nc],
+                "ch": ch,
+                "score": round(sc, 2),
+                "details": parts,
+                "chosen": best_nb == (nr, nc)
+            }
+        return score_data
 
     def _is_safe(self, pos: Tuple[int, int]) -> bool:
         """是否安全通过：不是已知且未收集的陷阱，或已收集过"""
@@ -172,21 +251,125 @@ class GreedyPlayer:
         if stuck_visits >= 2:
             trap_acceptance = min(1.0, trap_acceptance + 0.20 * stuck_visits)
 
+        # ============================================================
+        #  路口回溯：必经陷阱时BFS规划完整路径，逐步走完
+        # ============================================================
+        JUNCTION_BACKTRACK_LIMIT = 7
+        has_visible_reward = len(visible_golds) > 0
+
+        # 正在执行回溯路径：视野出现金币则中断，否则继续沿路走
+        if self._backtrack_path is not None:
+            if has_visible_reward:
+                self._backtrack_path = None  # 看到金币，中断回溯
+            else:
+                # 弹出已到达的位置，取下一步
+                while self._backtrack_path and self._backtrack_path[0] == self.pos:
+                    self._backtrack_path.pop(0)
+                if not self._backtrack_path:
+                    self._backtrack_path = None  # 已到达目标
+                else:
+                    next_step = self._backtrack_path[0]
+                    scores = {}
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nr, nc = self.pos[0] + dr, self.pos[1] + dc
+                        if not self.is_passable(nr, nc):
+                            scores[(dr, dc)] = (-999, ["墙"])
+                        elif (nr, nc) == next_step:
+                            scores[(dr, dc)] = (999, ["回溯路径"])
+                        else:
+                            scores[(dr, dc)] = (-99, ["回溯中"])
+                    return next_step, self._build_score_data(scores, next_step)
+
+        # 发起新回溯：必经陷阱 + 无可见金币 + 不在冷却
+        in_cooldown = self._backtrack_cooldown > 0
+        need_backtrack = trap_is_only_way and not has_visible_reward and not in_cooldown
+
+        if need_backtrack:
+            # 找最近的有效回溯目标（旁边有未访安全邻居的已访问位置）
+            goal = None
+            if self._last_junction is not None and self._is_junction(self._last_junction):
+                goal = self._last_junction
+            else:
+                # 从当前位置BFS遍历已访问区域，找第一个旁边有未访安全格的位置
+                frontier = deque([self.pos])
+                bfs_prev = {self.pos: None}
+                while frontier:
+                    cur = frontier.popleft()
+                    if cur != self.pos:
+                        # 检查该位置旁边是否有未访问的安全邻居
+                        for nb in self.get_neighbors(cur):
+                            if nb not in self.visited and self._is_safe(nb) and nb not in self._dead_ends:
+                                goal = cur
+                                break
+                    if goal is not None:
+                        break
+                    for nb in self.get_neighbors(cur):
+                        if nb in self.visited and nb not in bfs_prev:
+                            bfs_prev[nb] = cur
+                            frontier.append(nb)
+            if goal is not None and goal != self.pos:
+                jpath = self._bfs_in_visited(goal)
+                if jpath and len(jpath) >= 2:
+                    # 目标就是最近路口 → 用实际步数；否则用BFS距离
+                    if goal == self._last_junction:
+                        branch_len = self._steps_since_junction
+                    else:
+                        branch_len = len(jpath) - 1
+                    if branch_len <= JUNCTION_BACKTRACK_LIMIT:
+                        # 去掉起点(当前pos)，只保留要走的路径
+                        self._backtrack_path = jpath[1:]
+                        self._backtrack_cooldown = 8
+                        # 记忆必经陷阱位置（用于后续方向平局时打破僵局）
+                        if new_any:
+                            self._remembered_mandatory_trap = new_any[0]
+                        if verbose:
+                            print(f"  [回溯] 必经陷阱，分支长{branch_len}步"
+                                  f"，沿BFS走{len(self._backtrack_path)}步到{goal}")
+                        # 立即走回溯第一步，不走正常评分
+                        next_step = self._backtrack_path[0]
+                        scores = {}
+                        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            nr, nc = self.pos[0] + dr, self.pos[1] + dc
+                            if not self.is_passable(nr, nc):
+                                scores[(dr, dc)] = (-999, ["墙"])
+                            elif (nr, nc) == next_step:
+                                scores[(dr, dc)] = (999, ["回溯路径"])
+                            else:
+                                scores[(dr, dc)] = (-99, ["回溯中"])
+                        return next_step, self._build_score_data(scores, next_step)
+
         best_score = -999999.0
         best_nb = None
-        scores = {}  # 用于调试
+        scores = {}
+
+        # 记忆金币在3×3视野外的（需要回头去拿的）
+        memory_golds_outside = [g for g in self.known_golds
+                                if g not in self.collected_positions
+                                and (abs(g[0] - r0) > 1 or abs(g[1] - c0) > 1)]
 
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nr, nc = r0 + dr, c0 + dc
             if not self.is_passable(nr, nc):
-                # 墙也记录（前端可视化用）
                 scores[(dr, dc)] = (-999, [f"墙({nr},{nc})"])
                 continue
 
-            score = 0.0
-            parts = []  # 评分明细（调试用）
+            # 检测该方向是否有记忆金币（在3×3视野外）
+            heading_to_memory = False
+            for g in memory_golds_outside:
+                gr, gc = g
+                in_dir = False
+                if dr == -1 and gr < r0: in_dir = True
+                elif dr == 1 and gr > r0: in_dir = True
+                elif dc == -1 and gc < c0: in_dir = True
+                elif dc == 1 and gc > c0: in_dir = True
+                if in_dir:
+                    heading_to_memory = True
+                    break
 
-            # 0. 步数成本（每步都有代价，鼓励短路径，避免绕远路避陷阱）
+            score = 0.0
+            parts = []
+
+            # 0. 步数成本
             score -= STEP_COST
 
             # 1. 探索奖励（未访问格子优先）
@@ -208,12 +391,14 @@ class GreedyPlayer:
                 parts.append(f"死胡同-50")
 
             # 3. 重复访问惩罚：每多走一次扣3分
-            #    有备选路线时打折 → 鼓励"探索性回溯"寻找安全出口
+            #    记忆金币导航时打折50% → 鼓励回头拿记忆中的资源
             visits = self._visit_count.get((nr, nc), 0)
             if visits > 0:
                 base_penalty = visits * 3.0
                 revisit_discount = 0.0
-                if trap_is_only_way:
+                if heading_to_memory:
+                    revisit_discount = 0.5
+                elif trap_is_only_way:
                     revisit_discount = 0.5 * (1.0 - trap_acceptance)
                 penalty = base_penalty * (1.0 - revisit_discount)
                 score -= penalty
@@ -223,12 +408,14 @@ class GreedyPlayer:
                     parts.append(f"重访{visits}次-{penalty:.0f}")
 
             # 4. 回退惩罚：最近几步走过的格子
-            #    有备选路线时打折 → 降低"回头找安全路"的门槛
+            #    记忆金币导航时打折50% → 降低回头拿记忆资源的门槛
             recent = set(self.path[-min(len(self.path), 4):])
             if (nr, nc) in recent:
                 base_backtrack = 10.0
                 backtrack_discount = 0.0
-                if trap_is_only_way:
+                if heading_to_memory:
+                    backtrack_discount = 0.5
+                elif trap_is_only_way:
                     backtrack_discount = 0.5 * (1.0 - trap_acceptance)
                 penalty = base_backtrack * (1.0 - backtrack_discount)
                 score -= penalty
@@ -315,31 +502,65 @@ class GreedyPlayer:
                 best_score = score
                 best_nb = (nr, nc)
 
+        # 6. 记忆陷阱平局打破：四周都已访问 + 最高分出现平局时，
+        #    用已知陷阱引力引导走向必经陷阱方向
+        if best_nb is not None:
+            # 检查四个可通行方向是否都已访问过
+            all_visited = True
+            for dr2, dc2 in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nr2, nc2 = r0 + dr2, c0 + dc2
+                if self.is_passable(nr2, nc2) and (nr2, nc2) not in self.visited:
+                    all_visited = False
+                    break
+
+            if all_visited:
+                # 找出所有平局的最高分方向
+                tied = []
+                for (dr, dc), (sc, _) in scores.items():
+                    if sc == best_score:
+                        tied.append((dr, dc))
+
+                if len(tied) > 1 and self._remembered_mandatory_trap is not None:
+                    tr, tc = self._remembered_mandatory_trap
+                    # 对每个平局方向，计算到记忆陷阱的引力
+                    for dr, dc in tied:
+                        nr, nc = r0 + dr, c0 + dc
+                        in_dir = False
+                        if dr == -1 and tr < r0: in_dir = True
+                        elif dr == 1 and tr > r0: in_dir = True
+                        elif dc == -1 and tc < c0: in_dir = True
+                        elif dc == 1 and tc > c0: in_dir = True
+                        if in_dir:
+                            dist = max(abs(tr - r0) + abs(tc - c0), 1)
+                            bonus = TRAP_COST / dist
+                            old_sc, old_parts = scores[(dr, dc)]
+                            new_sc = old_sc + bonus
+                            old_parts.append(f"忆T({tr},{tc})+{bonus:.1f}")
+                            scores[(dr, dc)] = (new_sc, old_parts)
+
+                    # 重新判定最佳方向
+                    best_score = -999999.0
+                    best_nb = None
+                    for (dr, dc), (sc, _) in scores.items():
+                        nr, nc = r0 + dr, c0 + dc
+                        if sc > best_score:
+                            best_score = sc
+                            best_nb = (nr, nc)
+
         if verbose:
             print(f"  [评分] pos=({r0},{c0}) prev={prev_pos}")
             ch_list = []
             for (dr, dc), (sc, parts) in sorted(scores.items(), key=lambda x: -x[1][0]):
                 nr, nc = r0+dr, c0+dc
-                ch = self.maze[nr][nc]
+                ch = self.maze[nr][nc] if (0 <= nr < self.rows and 0 <= nc < self.cols) else '#'
                 vst = "新" if (nr, nc) not in self.visited else "访"
-                arrow = "←" if best_nb == (nr, nc) else " "
-                ch_list.append(f"  {arrow} ({dr:+d},{dc:+d})→({nr},{nc}) ch={ch} {vst} 得分={sc:.2f} [{', '.join(parts)}]")
+                arrow = "<-" if best_nb == (nr, nc) else "  "
+                ch_list.append(f"  {arrow} ({dr:+d},{dc:+d})->({nr},{nc}) ch={ch} {vst} sc={sc:.2f} [{', '.join(parts)}]")
             for line in ch_list:
                 print(line)
 
         # 构建前端用的评分数据
-        score_data = {}
-        for (dr, dc), (sc, parts) in scores.items():
-            nr, nc = r0+dr, c0+dc
-            ch = self.maze[nr][nc] if (0 <= nr < self.rows and 0 <= nc < self.cols) else '#'
-            score_data[f"({dr:+d},{dc:+d})"] = {
-                "pos": [nr, nc],
-                "ch": ch,
-                "score": round(sc, 2),
-                "details": parts,
-                "chosen": best_nb == (nr, nc)
-            }
-        return best_nb, score_data
+        return best_nb, self._build_score_data(scores, best_nb)
 
     # ============================================================
     #  资源收集
@@ -358,6 +579,9 @@ class GreedyPlayer:
             self.traps_hit += 1
             self.collected_positions.add(pos)
             self.known_traps.discard(pos)
+            # 踩到记忆的必经陷阱后清除记忆
+            if self._remembered_mandatory_trap == pos:
+                self._remembered_mandatory_trap = None
 
     # ============================================================
     #  主循环
@@ -373,14 +597,22 @@ class GreedyPlayer:
         start_pos = self.pos  # 记录起始位置
 
         while self.pos != goal and step < max_steps:
-            step += 1
-
             # 1. 扫描3×3视野
             visible_golds, visible_traps = self.scan_visible()
 
             # 2. 四方向评分
             next_pos, step_score = self._best_direction(visible_golds, verbose=debug)
-            self._step_scores.append({"pos": list(self.pos), "scores": step_score})
+            cur_move = len(self.path) - 1
+            cur_net = self.collected_gold - self.traps_hit * TRAP_COST
+            self._step_scores.append({
+                "pos": list(self.pos),
+                "scores": step_score,
+                "stats": {
+                    "netGold": cur_net,
+                    "moveCount": cur_move,
+                    "ratio": round(cur_net / max(cur_move, 1), 2),
+                },
+            })
 
             # 3. 循环检测
             self._recent_pos.append(self.pos)
@@ -396,24 +628,27 @@ class GreedyPlayer:
                     if alt:
                         next_pos = alt[0]
                         if debug:
-                            print(f"  ⚠ 检测到循环! 强制走 {next_pos}")
+                            print(f"  [循环] 检测到循环! 强制走 {next_pos}")
 
             if next_pos is None or next_pos == self.pos:
                 if debug:
-                    print(f"  ❌ 卡住了! pos={self.pos}")
+                    print(f"  [卡住] 无法移动! pos={self.pos}")
                 break
 
             if debug:
-                print(f"  → 移动: {self.pos} → {next_pos}")
+                print(f"  [移动] {self.pos} -> {next_pos}")
                 if self.maze[next_pos[0]][next_pos[1]] in ('G', 'T'):
-                    print(f"  💰 收集: {self.maze[next_pos[0]][next_pos[1]]}")
+                    print(f"  [收集] 资源: {self.maze[next_pos[0]][next_pos[1]]}")
 
             # 4. 移动并收集
             self.pos = next_pos
             self.path.append(self.pos)
             self.visited.add(self.pos)
-            self._visit_count[self.pos] = self._visit_count.get(self.pos, 0) + 1
+            # 回溯路径上的重访不增加计数
+            if self._backtrack_path is None:
+                self._visit_count[self.pos] = self._visit_count.get(self.pos, 0) + 1
             self.collect_at(self.pos)
+            self._update_junction_tracking()
 
             # 记录Boss之后的步
             if self.pos != start_pos:
@@ -425,7 +660,9 @@ class GreedyPlayer:
             if len(nb_now) == 1 and all(n in self.visited for n in nb_now):
                 self._dead_ends.add(self.pos)
                 if debug:
-                    print(f"  🔒 标记死胡同: {self.pos}")
+                    print(f"  [死胡同] 标记: {self.pos}")
+
+            step += 1
 
         return new_steps, new_scores
 
@@ -435,9 +672,11 @@ class GreedyPlayer:
         _goal = self.boss_pos if self.boss_pos != (-1, -1) else self.end
         self._walk_to(_goal, debug=debug)
 
-        # 统计
+        # 统计（步数不含起点）
         trap_loss = self.traps_hit * TRAP_COST
         net_gold = self.collected_gold - trap_loss
+        move_count = len(self.path) - 1
+        ratio = net_gold / max(move_count, 1)
 
         return {
             "path": self.path,
@@ -445,9 +684,10 @@ class GreedyPlayer:
             "trapDamage": trap_loss,
             "trapsHit": self.traps_hit,
             "netGold": net_gold,
-            "pathLength": len(self.path),
+            "pathLength": move_count,
+            "ratio": round(ratio, 3),
             "reachedBoss": self.pos == self.boss_pos,
-            "reachedEnd": False,  # 由 ai_engine 在Boss战后判定
+            "reachedEnd": False,
             "visionRange": self.vision,
             "strategy": "greedy_local",
             "stepScores": self._step_scores,

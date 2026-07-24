@@ -1,0 +1,98 @@
+{
+  "success": true,
+  "path": [
+    [
+      6,
+      4
+    ],
+    [
+      5,
+      4
+    ],
+    [
+      5,
+      5
+    ],
+    [
+      5,
+      4
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      0,
+      5
+    ]
+  ],
+  "path_length": 12,
+  "move_steps": 11,
+  "final_coin": 90,
+  "coin_step_ratio": 8.1818181818,
+  "boss_success": true,
+  "boss_total_turns": 27,
+  "boss_revive_count": 1,
+  "boss_coin_cost": 10,
+  "boss_skill_sequence_lengths": [
+    15,
+    12
+  ],
+  "boss_skill_sequences": [
+    [
+      0,
+      1,
+      2,
+      2,
+      1,
+      0,
+      2,
+      1,
+      2,
+      2,
+      0,
+      1,
+      2,
+      2,
+      1
+    ],
+    [
+      0,
+      1,
+      2,
+      2,
+      1,
+      2,
+      0,
+      1,
+      2,
+      2,
+      1,
+      0
+    ]
+  ]
+}

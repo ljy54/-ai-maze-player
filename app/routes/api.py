@@ -10,6 +10,7 @@ router = APIRouter()
 
 # data 目录路径
 _DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+_RESULT_DIR = os.path.join(_DATA_DIR, "results")
 
 
 def _convert_grid_to_maze(grid: list) -> list:
@@ -33,37 +34,38 @@ async def list_mazes():
     mazes = []
     if os.path.isdir(_DATA_DIR):
         for fname in sorted(os.listdir(_DATA_DIR)):
-            if fname.endswith(".json"):
-                fpath = os.path.join(_DATA_DIR, fname)
-                try:
-                    with open(fpath, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+            fpath = os.path.join(_DATA_DIR, fname)
+            if not fname.endswith(".json") or os.path.isdir(fpath):
+                continue
+            try:
+                with open(fpath, "r", encoding="utf-8") as f:
+                    data = json.load(f)
 
-                    # 兼容两种格式
-                    if "grid" in data:
-                        # case-maze 的 grid 格式
-                        grid = data["grid"]
-                        rows = len(grid)
-                        cols = len(grid[0]) if rows > 0 else 0
-                        gold_count = sum(1 for r in grid for c in r if c == "G")
-                        trap_count = sum(1 for r in grid for c in r if c == "T")
-                    elif "maze" in data:
-                        rows = len(data["maze"])
-                        cols = len(data["maze"][0]) if rows > 0 else 0
-                        gold_count = sum(1 for r in data["maze"] for c in r if c == "G")
-                        trap_count = sum(1 for r in data["maze"] for c in r if c == "T")
-                    else:
-                        continue  # 不认识的格式，跳过
+                # 兼容两种格式
+                if "grid" in data:
+                    # case-maze 的 grid 格式
+                    grid = data["grid"]
+                    rows = len(grid)
+                    cols = len(grid[0]) if rows > 0 else 0
+                    gold_count = sum(1 for r in grid for c in r if c == "G")
+                    trap_count = sum(1 for r in grid for c in r if c == "T")
+                elif "maze" in data:
+                    rows = len(data["maze"])
+                    cols = len(data["maze"][0]) if rows > 0 else 0
+                    gold_count = sum(1 for r in data["maze"] for c in r if c == "G")
+                    trap_count = sum(1 for r in data["maze"] for c in r if c == "T")
+                else:
+                    continue  # 不认识的格式，跳过
 
-                    mazes.append({
-                        "name": fname.replace(".json", ""),
-                        "file": fname,
-                        "size": f"{rows}×{cols}",
-                        "goldCount": gold_count,
-                        "trapCount": trap_count,
-                    })
-                except Exception:
-                    pass
+                mazes.append({
+                    "name": fname.replace(".json", ""),
+                    "file": fname,
+                    "size": f"{rows}×{cols}",
+                    "goldCount": gold_count,
+                    "trapCount": trap_count,
+                })
+            except Exception:
+                pass
     return {"mazes": mazes}
 
 
@@ -99,6 +101,7 @@ def _parse_request(data: dict) -> dict:
     coin_consumption = data.get("CoinConsumption", data.get("coinConsumption", 5))
     # 任务一视野强制 3×3 九宫格（半径1），忽略前端传值
     vision = 1
+    maze_file = data.get("mazeFile")
     return {
         "maze": maze,
         "boss_hps": bosses,
@@ -106,6 +109,7 @@ def _parse_request(data: dict) -> dict:
         "min_rounds": min_rounds,
         "coin_consumption": coin_consumption,
         "vision_range": vision,
+        "maze_file": maze_file,
     }
 
 
@@ -129,6 +133,20 @@ async def solve_greedy(data: dict):
         coin_consumption=args["coin_consumption"],
         vision_range=args["vision_range"],
     )
+
+    # 自动生成结果 JSON 文件（保存到 data/results/ 目录）
+    maze_file = args.get("maze_file")
+    if maze_file:
+        try:
+            output_data = engine.build_task1_result_json(result, args)
+            base_name = maze_file.rsplit(".json", 1)[0] if maze_file.endswith(".json") else maze_file
+            os.makedirs(_RESULT_DIR, exist_ok=True)
+            result_path = os.path.join(_RESULT_DIR, f"{base_name}_result.json")
+            with open(result_path, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            # 保存失败不阻断主流程
+            print(f"[警告] 保存结果JSON失败: {e}")
 
     return SolveResponse(
         success=True,

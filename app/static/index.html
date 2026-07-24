@@ -79,8 +79,8 @@ select { padding:3px 6px; background:#16213e; color:#ddd; border:1px solid #333;
   <div style="display:flex;gap:12px;align-items:center;">
     <div class="task-selector">
       <span style="font-size:11px;color:#889;">AI模式:</span>
-      <button class="task-btn active" id="btn-mode-greedy" onclick="switchMode('greedy')">🟢 任务一：贪心拾取</button>
-      <button class="task-btn" id="btn-mode-global" onclick="switchMode('global')">🔵 任务二：局部最优</button>
+      <button class="task-btn active" id="btn-mode-greedy" onclick="switchMode('greedy')">🟢 任务一：探索迷宫</button>
+      <button class="task-btn" id="btn-mode-global" onclick="switchMode('global')">🔵 任务二：九宫格</button>
     </div>
   </div>
 </div>
@@ -181,9 +181,24 @@ let currentMode = 'greedy';  // 'greedy' | 'global'
 let maze = [];
 let result = null;
 let compareResult = null;
+let currentMazeFile = null;
 let animSteps = [], animIdx = 0, animTimer = null, animSpeed = 300;
 let animRunningGold = 0, animRunningDamage = 0, animRunningCoins = 0, animRunningTraps = 0;
 let playerSkills = [], bossHPs = [];
+
+// ======== 格式兼容：grid → maze ========
+function extractMaze(data) {
+  // 优先 maze 格式，其次 grid 格式（case-maze系列）
+  if (data.maze) return data.maze;
+  if (data.grid) {
+    return data.grid.map(row => row.map(ch => {
+      if (ch === 'P') return 'S';  // P → S（起点）
+      if (ch === '.') return ' ';  // . → 空地
+      return ch;                    // G, T, E, B, # 等保持不变
+    }));
+  }
+  return [];
+}
 
 const DEFAULT_JSON = JSON.stringify({
   maze: [
@@ -248,9 +263,10 @@ async function doSolve() {
   btn.textContent = '⏳ 计算中...';
   try {
     const data = JSON.parse(document.getElementById('json-input').value);
-    maze = data.maze;
+    maze = extractMaze(data);
     playerSkills = data.PlayerSkills || [];
     bossHPs = data.B || [];
+    if (currentMazeFile) data.mazeFile = currentMazeFile;  // 传递文件名给后端
     const res = await fetch(getApiEndpoint(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -275,7 +291,7 @@ async function doCompare() {
   btn.textContent = '⏳ 对比中...';
   try {
     const data = JSON.parse(document.getElementById('json-input').value);
-    maze = data.maze; playerSkills = data.PlayerSkills || []; bossHPs = data.B || [];
+    maze = extractMaze(data); playerSkills = data.PlayerSkills || []; bossHPs = data.B || [];
     const res = await fetch('/api/compare', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
@@ -347,18 +363,15 @@ function renderResult() {
 
   let html = `<div class="stat-grid">`;
   if (isGreedy) {
-    // 任务一：净收益高亮
-    html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins}</div></div>`;
-    html += `<div class="stat-card"><div class="stat-label">陷阱伤害</div><div class="stat-value">💀 -${s.trapDamage}</div></div>`;
-    html += `<div class="stat-card"><div class="stat-label">路径长度</div><div class="stat-value">👣 ${s.pathLength}步</div></div>`;
+    // 任务一：净收益和比值
+    html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins} (${s.collectedGolds}个)</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">陷阱伤害</div><div class="stat-value">💀 -${s.trapDamage} (${s.trapsHit||0}次)</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">移动步数</div><div class="stat-value">👣 ${s.pathLength}步</div></div>`;
     html += `<div class="stat-card ${hlClass}"><div class="stat-label">净收益</div><div class="stat-value">📈 ${s.netCoins}金币</div></div>`;
-    html += `<div class="stat-card"><div class="stat-label">收集金币数</div><div class="stat-value">📊 ${s.collectedGolds}个</div></div>`;
+    html += `<div class="stat-card"><div class="stat-label">资源/路径比值</div><div class="stat-value">📊 ${(s.ratio||0).toFixed(3)}</div></div>`;
     html += `<div class="stat-card"><div class="stat-label">击败Boss</div><div class="stat-value">${s.bossDefeated?'✅ 是':'❌ 否'}</div></div>`;
     html += `<div class="stat-card"><div class="stat-label">使用回合</div><div class="stat-value">⏱ ${s.roundsUsed}/${s.minRounds}</div></div>`;
     html += `<div class="stat-card"><div class="stat-label">复活消耗</div><div class="stat-value">🪙 ${s.revivalCost}</div></div>`;
-    if (s.trapsHit !== undefined) {
-      html += `<div class="stat-card"><div class="stat-label">触发陷阱次数</div><div class="stat-value">⚠️ ${s.trapsHit}次</div></div>`;
-    }
   } else {
     // 任务二：比值高亮
     html += `<div class="stat-card"><div class="stat-label">收集金币</div><div class="stat-value">💰 ${s.totalCoins} (${s.collectedGolds}个)</div></div>`;
@@ -441,16 +454,17 @@ function buildAnimSteps() {
       animSteps.push(makeMoveStep(result.path[i]));
     }
     // Boss战斗动画（在B位置）
-    animSteps.push({ type:'boss', desc:'⚔️ 开始Boss战!' });
+    animSteps.push({ type:'boss', desc:'⚔️ 开始Boss战! (逐个遭遇Boss)' });
     const minRounds = result.stats.minRounds || 999;
     const revivalCost = result.stats.revivalCost || 0;
-    let revived = false;
+    const revivalCount = result.stats.revivalCount || 0;
+    let revivalsInserted = 0;
     (result.skillSequence||[]).forEach(sk => {
-      // 在回合耗尽的那一步之前插入复活提示
-      if (revivalCost > 0 && !revived && sk.round > minRounds) {
-        revived = true;
-        const numRevivals = Math.ceil((result.stats.roundsUsed - minRounds) / minRounds);
-        animSteps.push({ type:'revival', desc:`💀 回合耗尽! 复活${numRevivals}次(获得${numRevivals * minRounds}回合), 消耗${revivalCost}金币` });
+      // 检测复活：技能回合跨越了 minRounds 的整数倍边界
+      while (revivalCost > 0 && revivalsInserted < revivalCount &&
+             sk.round > (revivalsInserted + 1) * minRounds) {
+        revivalsInserted++;
+        animSteps.push({ type:'revival', desc:`💀 第${revivalsInserted}次复活! 消耗${Math.round(revivalCost/revivalCount)}金币` });
       }
       animSteps.push({ type:'skill', desc:`⚔️ 回合${sk.round}: 技能${sk.skillIndex} → Boss${sk.targetBoss}` });
     });
@@ -522,12 +536,12 @@ function renderAnimFrame() {
   netEl.textContent = revivalCost > 0 ? animRunningNet + ' (复活-' + revivalCost + ')' : animRunningNet;
   netEl.style.color = animRunningNet >= 0 ? '#2ecc71' : '#e74c3c';
 
-  // 统计移动步数（不包含Boss战斗步）
+  // 统计移动步数（不包含Boss战斗步，从0开始计数）
   let moveCount = 0;
   for (let i = 0; i <= animIdx; i++) {
     if (animSteps[i].type === 'move') moveCount++;
   }
-  document.getElementById('anim-step-count').textContent = moveCount;
+  document.getElementById('anim-step-count').textContent = Math.max(0, moveCount - 1);
 
   // 方向评分可视化
   // 任务一格式: sc.scores = {方向: {score, pos, ch, details, chosen}}
@@ -543,6 +557,17 @@ function renderAnimFrame() {
 
     // 四方向评分（任务一/二共用）
     if (sc.scores) {
+      // 检测是否触发回溯
+      let isBacktracking = false;
+      for (const [dir, info] of Object.entries(sc.scores)) {
+        if (info.details && info.details.some(d => d.includes('回溯路径'))) {
+          isBacktracking = true; break;
+        }
+      }
+      if (isBacktracking) {
+        html += '<div style="background:#3d1a00;border:1px solid #e67e22;border-radius:6px;padding:6px 10px;margin-bottom:6px;font-size:12px;color:#e67e22;font-weight:bold;">🔄 回溯中 — 必经陷阱，返回最近路口探索新分支</div>';
+      }
+
       const arrows = {'(-1,+0)':'↑','(+1,+0)':'↓','(0,-1)':'←','(0,+1)':'→'};
       const entries = Object.entries(sc.scores);
       entries.sort((a,b) => b[1].score - a[1].score);
@@ -563,7 +588,7 @@ function renderAnimFrame() {
         '</div>';
       }
     }
-    // 任务二累计统计（在方向评分下方显示）
+    // 累计统计（在方向评分下方显示，任务一/二通用）
     if (sc.stats && sc.stats.ratio !== undefined) {
       html += '<div style="background:#16213e;border-radius:4px;padding:6px 8px;margin-top:6px;font-size:10px;color:#aab;display:flex;gap:10px;">'+
         '<span>净收益: <b style="color:#2ecc71;">'+sc.stats.netGold+'</b></span>'+
@@ -639,20 +664,50 @@ function renderBattleTab(animatedSkillCount) {
     html += `<div class="timeline-row"><div class="timeline-label">技能${si}<div class="timeline-sub">伤${dmg}冷${cd}</div></div><div class="timeline-dots">${dots}</div></div>`;
   }
 
-  // Boss血量（根据已播放技能扣减）
+  // Boss血量（逐个遭遇：遇到才显示血量，复活后重置）
+  let maxRevealed = -1;
+  for (const sk of skills) { if (sk.targetBoss > maxRevealed) maxRevealed = sk.targetBoss; }
+
+  const minRounds = (result.stats && result.stats.minRounds) || Infinity;
+  const revivalCount = (result.stats && result.stats.revivalCount) || 0;
   const remainHP = [...bossHPs];
+  let revivalsSeen = 0;
   for (const sk of skills) {
+    // 检测复活：技能回合跨越了minRounds边界 → Boss全部回满血
+    while (revivalsSeen < revivalCount &&
+           sk.round > (revivalsSeen + 1) * minRounds) {
+      revivalsSeen++;
+      for (let i = 0; i < remainHP.length; i++) {
+        remainHP[i] = bossHPs[i];
+      }
+    }
     remainHP[sk.targetBoss] -= (playerSkills[sk.skillIndex]||[0,0])[0];
   }
-  html += '<div style="margin-top:6px;"><div style="font-size:11px;font-weight:bold;margin-bottom:3px;">Boss血量</div>';
-  for (let bi=0; bi<bossHPs.length; bi++) {
-    const hp = Math.max(0, remainHP[bi]);
-    const pct = bossHPs[bi] > 0 ? hp / bossHPs[bi] : 0;
-    const barLen = Math.max(0, Math.round(pct * 25));
-    const barColor = pct > 0.5 ? '#e74c3c' : pct > 0.2 ? '#e67e22' : '#c0392b';
-    html += `<div style="font-size:10px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
-      Boss${bi}<span style="color:${barColor};">${'█'.repeat(barLen)}${'░'.repeat(25-barLen)}</span> ${hp}/${bossHPs[bi]}
-    </div>`;
+
+  html += '<div style="margin-top:6px;"><div style="font-size:11px;font-weight:bold;margin-bottom:3px;">Boss血量（逐个遭遇）</div>';
+
+  // 还没有释放任何技能 → 不显示Boss血量
+  if (skills.length === 0) {
+    html += '<div style="font-size:10px;color:#889;">⚔️ 即将开始Boss战...</div>';
+  } else {
+    for (let bi=0; bi<bossHPs.length; bi++) {
+      if (bi > maxRevealed) {
+        // 尚未遭遇的Boss — 显示???
+        html += `<div style="font-size:10px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
+          Boss${bi} <span style="color:#555;">???</span>
+        </div>`;
+        continue;
+      }
+      const hp = Math.max(0, remainHP[bi]);
+      const initHP = bossHPs[bi];
+      const pct = initHP > 0 ? hp / initHP : 0;
+      const barLen = Math.max(0, Math.round(pct * 25));
+      const barColor = hp <= 0 ? '#2ecc71' : pct > 0.5 ? '#e74c3c' : pct > 0.2 ? '#e67e22' : '#c0392b';
+      const status = hp <= 0 ? '💀已击败' : '';
+      html += `<div style="font-size:10px;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
+        Boss${bi}<span style="color:${barColor};">${'█'.repeat(barLen)}${'░'.repeat(25-barLen)}</span> ${hp}/${initHP} ${status}
+      </div>`;
+    }
   }
   html += '</div><div style="display:flex;gap:10px;font-size:9px;color:#889;margin-top:4px;"><span>🟢可用</span><span>🔴释放</span><span>⬜冷却</span><span style="color:#2a2a3e;">⬛等待</span></div>';
   document.getElementById('timeline').innerHTML = html;
@@ -683,11 +738,12 @@ async function loadSelectedMaze() {
   const idx = document.getElementById('maze-select').value;
   if (idx === '') return;
   const m = mazeList[parseInt(idx)];
+  currentMazeFile = m.file;  // 记录文件名，求解时传给后端
   try {
     const res = await fetch('/api/data/' + m.file);
     const data = await res.json();
     document.getElementById('json-input').value = JSON.stringify(data, null, 2);
-    maze = data.maze; playerSkills = data.PlayerSkills || []; bossHPs = data.B || [];
+    maze = extractMaze(data); playerSkills = data.PlayerSkills || []; bossHPs = data.B || [];
     result = null; compareResult = null;
     document.getElementById('anim-section').style.display = 'none';
     renderStaticMaze(); renderResult();

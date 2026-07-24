@@ -1,0 +1,21 @@
+input 字段含义：
+maze：迷宫地图。
+B：Boss 血量序列，玩家需要按顺序击败所有 Boss。
+PlayerSkills：玩家技能列表，PlayerSkills[i] = [ai, bi]，ai 表示第 i 个技能的伤害，bi 表示第 i 个技能的冷却时间。
+minRouds：Boss 战规定回合数。若未能在规定回合数内击败全部 Boss，则本次挑战失败。
+CoinConsumption：复活所需金币数。挑战失败后扣除对应金币，并从第一个 Boss 重新开始挑战；已遇到或已击败 Boss 的血量信息可在后续挑战中使用，如果剩余金币数不支持玩家复活，则游戏失败。
+
+
+output 字段含义：
+success：是否通关，BOSS未击败，视为game over
+path_length：路径长度，包含起点，所以通常等于 move_steps + 1
+path: 移动路径坐标
+move_steps：移动步数
+final_coin：最终金币
+coin_step_ratio：最终金币 / 移动步数；如果失败则为 0
+boss_success：BOSS 是否成功击败
+boss_total_turns：BOSS 战总回合数，包括失败挑战和成功挑战
+boss_revive_count：BOSS 复活次数
+boss_coin_cost：BOSS 复活总金币消耗
+boss_skill_sequence_lengths：每次 BOSS 挑战的技能序列长度
+boss_skill_sequences：BOSS 技能序列二维数组，技能下标从 0 开始

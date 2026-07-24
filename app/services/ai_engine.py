@@ -40,8 +40,19 @@ class AIEngine:
         revival_cost = 0
 
         if reached_boss:
+            current_net = player.collected_gold - player.traps_hit * 30
             simulator = BossSimulator(boss_hps, skills, min_rounds)
-            can_beat, rounds_needed, skill_seq = simulator.solve()
+            # 使用复活机制：限定回合打不死则从第一个Boss重新打
+            can_beat, all_sequences, revival_count, revival_cost, rounds_needed = \
+                simulator.solve_with_revival(current_net, coin_consumption)
+
+            # 展平多段序列为单一 skill_seq
+            skill_seq = []
+            for seg in all_sequences:
+                skill_seq.extend(seg)
+
+            # 记录Boss战结果
+            boss_defeated = can_beat
 
             # 找E位置
             end_pos = (-1, -1)
@@ -49,20 +60,9 @@ class AIEngine:
                 for c in range(len(maze[0])):
                     if maze[r][c] == 'E': end_pos = (r, c)
 
-            if can_beat:
-                boss_defeated = True
+            # 无论Boss战结果如何，都继续走向终点（打不过也不卡在Boss）
+            if end_pos != (-1, -1):
                 player._walk_to(end_pos)
-            else:
-                extra = max(0, rounds_needed - min_rounds)
-                # 每复活一次支付 coinConsumption，获得 minRounds 次额外攻击回合
-                num_revivals = (extra + min_rounds - 1) // min_rounds
-                revival_cost = num_revivals * coin_consumption
-                current_net = player.collected_gold - player.traps_hit * 30
-                if current_net >= revival_cost:
-                    boss_defeated = True
-                    player._walk_to(end_pos)
-                else:
-                    revival_cost = 0  # 付不起复活费，不计入
 
         # 最终路径和评分
         path = player.path
@@ -74,7 +74,7 @@ class AIEngine:
         trap_damage = traps_hit * TRAP_COST
         net_from_path = total_gold - trap_damage
         final_net = net_from_path - revival_cost
-        reached_end = boss_defeated and len(path) > 0 and maze[path[-1][0]][path[-1][1]] == 'E'
+        reached_end = len(path) > 0 and maze[path[-1][0]][path[-1][1]] == 'E'
 
         return {
             "path": path,
@@ -91,8 +91,10 @@ class AIEngine:
                 "roundsUsed": rounds_needed,
                 "minRounds": min_rounds,
                 "revivalCost": revival_cost,
+                "revivalCount": revival_count,
                 "netCoins": final_net,
-                "pathLength": len(path),
+                "pathLength": len(path) - 1,  # 最终路径步数（不含起点）
+                "ratio": round(final_net / max(len(path) - 1, 1), 3),
                 "reachedEnd": reached_end,
             },
             # 任务一特有评价字段
@@ -106,6 +108,48 @@ class AIEngine:
                 "netValue": net_from_path,
             },
             "stepScores": all_step_scores,
+        }
+
+    def build_task1_result_json(self, result: dict, args: dict) -> dict:
+        """将 solve_greedy 的内部结果转为任务一输出 JSON 格式。
+        参照 maze_7_7_0_result.json 的字段结构。"""
+        stats = result["stats"]
+        path = result["path"]
+        move_steps = len(path) - 1
+        final_coin = stats["netCoins"]
+
+        # Boss 技能序列拆分（按复活次数分段）
+        skill_seq = result["skillSequence"]  # [{round, skillIndex, targetBoss}, ...]
+        min_rounds = args["min_rounds"]
+        revival_cost = stats["revivalCost"]
+        coin_consumption = args.get("coin_consumption", 10)
+
+        # 每 min_rounds 回合为一次挑战，按回合号分段
+        sequences = []
+        for sk in skill_seq:
+            r = sk["round"] - 1  # 1-base → 0-base
+            seg = r // max(min_rounds, 1)
+            while len(sequences) <= seg:
+                sequences.append([])
+            sequences[seg].append(sk["skillIndex"])
+
+        # 若没有技能序列，填充空数组
+        if not sequences:
+            sequences = [[]]
+
+        return {
+            "success": stats["bossDefeated"] or stats.get("reachedEnd", False),
+            "path": path,
+            "path_length": len(path),
+            "move_steps": move_steps,
+            "final_coin": final_coin,
+            "coin_step_ratio": round(final_coin / max(move_steps, 1), 10),
+            "boss_success": stats["bossDefeated"],
+            "boss_total_turns": stats["roundsUsed"],
+            "boss_revive_count": revival_cost // coin_consumption if revival_cost > 0 else 0,
+            "boss_coin_cost": revival_cost,
+            "boss_skill_sequence_lengths": [len(s) for s in sequences],
+            "boss_skill_sequences": sequences,
         }
 
     # ============================================================
